@@ -3,41 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Climatitzador en Estiu · Solver Psicromètric</title>
+  <title>Solver de Climatitzadors en Estiu</title>
   <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- KaTeX per renderitzar fórmules LaTeX ràpid i nítid -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 </head>
 <body>
   <div class="app-wrapper">
     
-    <!-- Barra Superior Minimalista -->
+    <!-- Barra Superior -->
     <header class="top-navbar">
-      <div class="brand-title">
-        <span class="brand-icon">❄️</span>
-        <div>
+      <div class="brand-section">
+        <div class="brand-title">
           <h1>Climatitzador en Estiu</h1>
-          <span>Solucionador psicromètric i balanç de processos</span>
+          <span>Resolució termodinàmica i carta psicromètrica</span>
         </div>
       </div>
-      <div class="nav-actions">
-        <button type="button" id="btn-example" class="btn-ghost primary-tint">
-          📋 Carregar Exemple
+
+      <!-- Selector de Vistes (Taula vs Debugger Pas a Pas) -->
+      <nav class="view-tabs">
+        <button type="button" id="tab-table" class="tab-btn active">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          Taula i Diagrama
         </button>
-        <button type="button" id="btn-clear" class="btn-ghost">
-          ✕ Netejar Taula
+        <button type="button" id="tab-debugger" class="tab-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          Resolució Pas a Pas
+        </button>
+      </nav>
+
+      <div class="nav-actions">
+        <button type="button" id="btn-example" class="btn-secondary">
+          Carregar Exemple
+        </button>
+        <button type="button" id="btn-clear" class="btn-secondary">
+          Netejar Taula
         </button>
       </div>
     </header>
 
-    <!-- Espai de Treball Principal -->
-    <main class="workspace-grid">
+    <!-- VISTA 1: TAULA I DIAGRAMA (Principal) -->
+    <main id="view-main" class="workspace-grid">
       
       <!-- Columna Esquerra: Taules Interactives -->
       <section class="tables-panel">
         
         <div class="card-box">
           <div class="card-title-bar">
-            <h2>Condicions i Cabals del Sistema</h2>
-            <span class="hint-pill">Clica i escriu directament a les cel·les blanques</span>
+            <h2>Dades del Sistema i Estats Psicromètrics</h2>
+            <span class="hint-pill">Edició directa a les cel·les blanques</span>
           </div>
 
           <!-- 1. Taula Psicromètrica Principal -->
@@ -45,7 +61,7 @@
             <table class="data-table">
               <thead>
                 <tr class="th-dark">
-                  <th class="text-left" style="width: 100px;">Punt</th>
+                  <th class="text-left" style="width: 95px;">Punt</th>
                   <th>T seca<br><small>ºC</small></th>
                   <th>H relativa<br><small>%</small></th>
                   <th>H abs<br><small>g/kg a.s.</small></th>
@@ -118,7 +134,7 @@
                 <tr>
                   <td class="text-left">Superf.</td>
                   <td id="out-s-t" class="calc-val">—</td>
-                  <td class="text-center" style="font-weight: 600; color: #475569;">100,0%</td>
+                  <td class="text-center" style="color: var(--text-muted);">100,0%</td>
                   <td id="out-s-w" class="calc-val">—</td>
                   <td id="out-s-v" class="calc-val">—</td>
                   <td id="out-s-h" class="calc-val">—</td>
@@ -194,7 +210,7 @@
                 <thead>
                   <tr class="th-gray">
                     <th>m_condens<br><small>kg H₂O/h</small></th>
-                    <th>Infiltracions<br><small>% ventilació</small></th>
+                    <th>Infiltracions<br><small>% cabal ventilació</small></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -213,11 +229,12 @@
           <!-- Barra d'Estat i Botó de Solucionar -->
           <div class="action-status-bar">
             <div id="status-pill" class="status-badge missing">
-              <span>●</span>
+              <span class="status-indicator-dot"></span>
               <span id="status-text">Falten dades de partida</span>
             </div>
-            <button type="button" id="btn-solve" class="btn-solve">
-              ⚡ Solucionar
+            <button type="button" id="btn-solve" class="btn-primary-action">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Solucionar
             </button>
           </div>
 
@@ -234,6 +251,10 @@
               <h2>Diagrama Psicromètric</h2>
               <span class="chart-subtitle">Carta Carrier / ASHRAE (P = 101,325 kPa)</span>
             </div>
+            <button type="button" id="btn-fullscreen-chart" class="btn-icon-text" title="Ampliar a pantalla completa">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              Pantalla Completa
+            </button>
           </div>
           
           <div id="psychro-container"></div>
@@ -263,12 +284,83 @@
 
     </main>
 
+    <!-- VISTA 2: RESOLUCIÓ PAS A PAS (DEBUGGER) -->
+    <main id="view-debugger" class="debugger-container" style="display: none;">
+      
+      <!-- Barra de controls del Debugger -->
+      <div class="debugger-controls-bar">
+        <span id="debug-step-indicator" class="debug-step-indicator">Pas 1 de 7</span>
+        
+        <div class="debug-buttons-group">
+          <button type="button" id="debug-btn-first" class="btn-nav-step" title="Primer Pas">Principi</button>
+          <button type="button" id="debug-btn-prev" class="btn-nav-step" title="Pas Anterior">Anterior</button>
+          <button type="button" id="debug-btn-next" class="btn-nav-step primary" title="Pas Següent">Següent</button>
+          <button type="button" id="debug-btn-last" class="btn-nav-step" title="Últim Pas">Final</button>
+        </div>
+      </div>
+
+      <!-- Contingut Dividit del Debugger -->
+      <div class="debugger-grid">
+        
+        <!-- Esquerra: Explicació i Equacions en LaTeX -->
+        <div class="debug-content-card">
+          <div class="debug-step-header">
+            <h2 id="debug-step-title">Títol del Pas</h2>
+            <p id="debug-step-summary">Descripció del procés i fonament termodinàmic.</p>
+          </div>
+
+          <div class="latex-block-container">
+            <!-- Fórmules Genèriques -->
+            <div class="latex-card">
+              <div class="latex-card-title">Equacions Teòriques:</div>
+              <div id="debug-latex-formula"></div>
+            </div>
+
+            <!-- Càlcul Numèric amb valors reals -->
+            <div class="latex-card substituted">
+              <div class="latex-card-title">Substitució amb les Dades de l'Exercici:</div>
+              <div id="debug-latex-substituted"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dreta: Diagrama Psicromètric Sincronitzat amb el Pas -->
+        <div class="chart-box">
+          <div class="chart-header">
+            <div>
+              <h2>Construcció sobre el Diagrama</h2>
+              <span class="chart-subtitle">Elements traçats fins a aquest pas</span>
+            </div>
+            <button type="button" id="btn-fullscreen-debug-chart" class="btn-icon-text" title="Ampliar a pantalla completa">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              Pantalla Completa
+            </button>
+          </div>
+          <div id="debug-psychro-container"></div>
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- MODAL DE PANTALLA COMPLETA PER AL DIAGRAMA -->
+  <div id="modal-fullscreen" class="fullscreen-modal" style="display: none;">
+    <div class="fullscreen-modal-body">
+      <div class="fullscreen-modal-header">
+        <h3>Diagrama Psicromètric (Pantalla Completa)</h3>
+        <button type="button" id="btn-close-fullscreen" class="btn-close-modal">Tancar</button>
+      </div>
+      <div id="fullscreen-chart-container" class="fullscreen-chart-content"></div>
+    </div>
   </div>
 
   <!-- Scripts -->
   <script src="js/psychrolib.js"></script>
   <script src="js/solver.js"></script>
   <script src="js/chart.js"></script>
+  <script src="js/step_debugger.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

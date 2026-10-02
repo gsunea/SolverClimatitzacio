@@ -17,6 +17,11 @@ Aplicació web lleugera, neta i interactiva per a la resolució i representació
 * **Diagrama Psicromètric autèntic (Carta Carrier / ASHRAE)**:
   * Gràfic vectorial SVG d'alta fidelitat amb corbes de saturació, línies d'humitat relativa ($\varphi = 10\% \dots 90\%$), línies d'entalpia/temperatura humida i línies de volum específic.
   * Traçat automàtic dels processos: línia de mescla $V - R$, refredament a bateria $M - I$, prolongació a superfície $I - S$ i maniobra de sala $I - R$.
+  * **Visualització en Pantalla Completa**: Botó dedicat per estudiar el diagrama psicromètric amb el màxim detall.
+* **Resolució Pas a Pas (Debugger)**:
+  * Pestanya interactiva que permet avançar o retrocedir pas a pas (de l'1 al 7) en la resolució de l'exercici.
+  * **Columna Esquerra**: Equacions teòriques en LaTeX (KaTeX) i substitució amb els valors numèrics reals del càlcul en curs.
+  * **Columna Dreta**: Diagrama psicromètric sincronitzat que dibuixa únicament els elements calculats fins al pas seleccionat.
 * **Botó de cas de referència**:
   * Permet carregar l'exercici clàssic d'exemple per comprovar i verificar els resultats amb 1 sol clic.
 

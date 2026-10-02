@@ -1,7 +1,7 @@
 /**
  * app.js
- * Controlador per a la nova interfície estil full de càlcul (spreadsheet).
- * Gestiona inputs directes a taula, comprovació d'estat i renderitzat del diagrama.
+ * Controlador per a la interfície tipus full de càlcul (spreadsheet),
+ * pantalla completa i resolució pas a pas (debugger) amb LaTeX.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,10 +23,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusPill = document.getElementById('status-pill');
   const statusText = document.getElementById('status-text');
 
-  // Llista d'inputs editables
-  const editableInputs = [inTv, inPhiV, inTR, inPhiR, inPhiI, inQsi, inQli, inQv, inInfil];
+  // Tabs de navegació
+  const tabTable = document.getElementById('tab-table');
+  const tabDebugger = document.getElementById('tab-debugger');
+  const viewMain = document.getElementById('view-main');
+  const viewDebugger = document.getElementById('view-debugger');
 
-  // Format de números amb coma decimal
+  // Pantalla completa
+  const btnFullscreenChart = document.getElementById('btn-fullscreen-chart');
+  const btnFullscreenDebugChart = document.getElementById('btn-fullscreen-debug-chart');
+  const modalFullscreen = document.getElementById('modal-fullscreen');
+  const btnCloseFullscreen = document.getElementById('btn-close-fullscreen');
+
+  const editableInputs = [inTv, inPhiV, inTR, inPhiR, inPhiI, inQsi, inQli, inQv, inInfil];
+  let lastSolution = null;
+
+  // Inicialitzar mòdul Debugger
+  StepDebugger.init();
+
   function fmt(val, decimals = 1) {
     if (val === null || val === undefined || isNaN(val)) return '—';
     return Number(val).toFixed(decimals).replace('.', ',');
@@ -64,16 +78,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return isReady;
   }
 
-  // Escoltar canvis als inputs per actualitzar l'estat
   editableInputs.forEach(input => {
     if (input) {
       input.addEventListener('input', checkDataStatus);
     }
   });
 
-  /**
-   * Obté el paquet d'entrades per al Solver
-   */
   function getInputs() {
     return {
       Tv: parseFloat(inTv.value),
@@ -89,9 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  /**
-   * Executa la resolució i omple totes les cel·les i el gràfic
-   */
   function solveSystem() {
     if (!checkDataStatus()) {
       alert('Si us plau, omple totes les dades de partida necessàries abans de solucionar.');
@@ -101,25 +108,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const inputs = getInputs();
       const sol = ClimaSolver.solve(inputs);
+      lastSolution = sol;
+
       const pts = sol.points;
       const pow = sol.powers;
 
       // 1. Taula Psicromètrica
-      // Ventilació
       setCell('out-v-w', fmt(pts.V.w_g_kg, 1));
       setCell('out-v-v', fmt(pts.V.v, 3));
       setCell('out-v-h', fmt(pts.V.h, 2));
       setCell('out-v-tr', fmt(pts.V.tr, 1));
       setCell('out-v-th', fmt(pts.V.th, 1));
 
-      // Retorn
       setCell('out-r-w', fmt(pts.R.w_g_kg, 1));
       setCell('out-r-v', fmt(pts.R.v, 3));
       setCell('out-r-h', fmt(pts.R.h, 2));
       setCell('out-r-tr', fmt(pts.R.tr, 1));
       setCell('out-r-th', fmt(pts.R.th, 1));
 
-      // Mescla
       setCell('out-m-t', fmt(pts.M.t, 1));
       setCell('out-m-phi', `${fmt(pts.M.phi, 1)}%`);
       setCell('out-m-w', fmt(pts.M.w_g_kg, 1));
@@ -128,7 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('out-m-tr', fmt(pts.M.tr, 1));
       setCell('out-m-th', fmt(pts.M.th, 1));
 
-      // Impulsió
       setCell('out-i-t', fmt(pts.I.t, 1));
       setCell('out-i-w', fmt(pts.I.w_g_kg, 1));
       setCell('out-i-v', fmt(pts.I.v, 3));
@@ -136,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('out-i-tr', fmt(pts.I.tr, 1));
       setCell('out-i-th', fmt(pts.I.th, 1));
 
-      // Superfície
       setCell('out-s-t', fmt(pts.S.t, 1));
       setCell('out-s-w', fmt(pts.S.w_g_kg, 1));
       setCell('out-s-v', fmt(pts.S.v, 3));
@@ -158,25 +162,25 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('out-qm', fmt(pts.M.Q, 1));
       setCell('out-mcond', fmt(pow.M_cond_h, 2));
 
-      // Indicadors ràpids sota el diagrama
+      // Indicadors ràpids
       setCell('kpi-quick-qbat', `${fmt(pow.q_bateria, 2)} kW`);
       setCell('kpi-quick-fbp', fmt(pow.FBP, 3));
       setCell('kpi-quick-mcond', `${fmt(pow.M_cond_h, 1)} kg/h`);
       setCell('kpi-quick-qi', `${fmt(pts.I.Q, 0)} m³/h`);
 
-      // Dibuixar diagrama psicromètric amb la solució
-      PsychroChart.render(sol);
+      // Dibuixar diagrama psicromètric complet
+      PsychroChart.render(sol, 7, 'psychro-container');
+
+      // Actualitzar el debugger amb la nova solució
+      StepDebugger.setSolution(sol);
     } catch (err) {
       console.error('Error calculant:', err);
-      alert('Error en els càlculs termodinàmics. Comprova que els valors introduïts siguin viables.');
+      alert('Error en els càlculs termodinàmics. Comprova que els valors introduïts siguin coherents.');
     }
   }
 
   btnSolve.addEventListener('click', solveSystem);
 
-  /**
-   * Carrega l'exemple de classe oficial
-   */
   function loadExample() {
     inTv.value = 31.0;
     inPhiV.value = 70.0;
@@ -194,16 +198,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnExample.addEventListener('click', loadExample);
 
-  /**
-   * Neteja totes les cel·les i deixa la taula buida
-   */
   function clearAll() {
     editableInputs.forEach(input => {
       if (input) input.value = '';
     });
-    inPhiI.value = '90'; // valor habitual per defecte
+    inPhiI.value = '90';
 
-    // Buidar cel·les de sortida
     const outputIds = [
       'out-v-w', 'out-v-v', 'out-v-h', 'out-v-tr', 'out-v-th',
       'out-r-w', 'out-r-v', 'out-r-h', 'out-r-tr', 'out-r-th',
@@ -216,14 +216,64 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     outputIds.forEach(id => setCell(id, '—'));
+    lastSolution = null;
 
     checkDataStatus();
-    // Renderitza la carta base buida
-    PsychroChart.render(null);
+    PsychroChart.render(null, 7, 'psychro-container');
+    PsychroChart.render(null, 1, 'debug-psychro-container');
   }
 
   btnClear.addEventListener('click', clearAll);
 
-  // Inicialització: Carregar l'exemple per defecte
+  // Gestió de Pestanyes (Taula vs Debugger)
+  function switchTab(target) {
+    if (target === 'table') {
+      tabTable.classList.add('active');
+      tabDebugger.classList.remove('active');
+      viewMain.style.display = 'grid';
+      viewDebugger.style.display = 'none';
+      if (lastSolution) {
+        PsychroChart.render(lastSolution, 7, 'psychro-container');
+      }
+    } else {
+      tabDebugger.classList.add('active');
+      tabTable.classList.remove('active');
+      viewMain.style.display = 'none';
+      viewDebugger.style.display = 'flex';
+      if (!lastSolution && checkDataStatus()) {
+        solveSystem();
+      }
+      if (lastSolution) {
+        StepDebugger.setSolution(lastSolution);
+      }
+    }
+  }
+
+  tabTable.addEventListener('click', () => switchTab('table'));
+  tabDebugger.addEventListener('click', () => switchTab('debugger'));
+
+  // Gestió de Pantalla Completa
+  function openFullscreenChart() {
+    if (!modalFullscreen) return;
+    modalFullscreen.style.display = 'flex';
+    PsychroChart.render(lastSolution, 7, 'fullscreen-chart-container');
+  }
+
+  function closeFullscreenChart() {
+    if (!modalFullscreen) return;
+    modalFullscreen.style.display = 'none';
+  }
+
+  if (btnFullscreenChart) btnFullscreenChart.addEventListener('click', openFullscreenChart);
+  if (btnFullscreenDebugChart) btnFullscreenDebugChart.addEventListener('click', openFullscreenChart);
+  if (btnCloseFullscreen) btnCloseFullscreen.addEventListener('click', closeFullscreenChart);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalFullscreen.style.display !== 'none') {
+      closeFullscreenChart();
+    }
+  });
+
+  // Inicialització amb l'exemple per defecte
   loadExample();
 });
