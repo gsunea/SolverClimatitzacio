@@ -3,486 +3,269 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Solucionador de Climatitzadors en Estiu - ETSEIB UPC</title>
+  <title>Climatitzador en Estiu · Solver Psicromètric</title>
   <link rel="stylesheet" href="css/styles.css">
-  <!-- Plotly.js CDN -->
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
-  <div class="app-container">
+  <div class="app-wrapper">
     
-    <!-- Capçalera -->
-    <header class="app-header">
-      <div class="header-content">
-        <h1>
-          <span>❄️</span> Solucionador de Climatitzadors en Estiu
-        </h1>
-        <p>Assignatura de Climatització i Refrigeració · ETSEIB - UPC · Formulació d'Aire Humit ASHRAE</p>
+    <!-- Barra Superior Minimalista -->
+    <header class="top-navbar">
+      <div class="brand-title">
+        <span class="brand-icon">❄️</span>
+        <div>
+          <h1>Climatitzador en Estiu</h1>
+          <span>Solucionador psicromètric i balanç de processos</span>
+        </div>
       </div>
-      <div class="header-badges">
-        <span class="badge-tag">ETSEIB - MUEI</span>
-        <span class="badge-tag">Prof. Rafael Ruiz</span>
-        <span class="badge-tag">PsychroLib 2.5</span>
+      <div class="nav-actions">
+        <button type="button" id="btn-example" class="btn-ghost primary-tint">
+          📋 Carregar Exemple
+        </button>
+        <button type="button" id="btn-clear" class="btn-ghost">
+          ✕ Netejar Taula
+        </button>
       </div>
     </header>
 
-    <!-- Barra de Presets -->
-    <nav class="presets-bar">
-      <span class="presets-label">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        Casos d'Estudi:
-      </span>
-      <button type="button" class="preset-btn active" data-preset="ej1">Exemple 1 de Classe (Foto de Pissarra)</button>
-      <button type="button" class="preset-btn" data-preset="alta_humitat">Alta Humitat Exterior (Estiu Litoral)</button>
-      <button type="button" class="preset-btn" data-preset="moderat">Clima Interior / Moderat</button>
-    </nav>
-
-    <!-- Contingut Principal en Graella -->
-    <main class="main-grid">
+    <!-- Espai de Treball Principal -->
+    <main class="workspace-grid">
       
-      <!-- Panell d'Entrades -->
-      <aside class="card">
-        <div class="card-header">
-          <h2>Paràmetres d'Entrada</h2>
-        </div>
-        <div class="card-body">
-          <form id="clima-form">
-            
-            <!-- Càrregues Interiors -->
-            <div class="input-section">
-              <div class="section-title interior">
-                <span>🏠</span> 1. Sala Climatitzada (Retorn R)
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="input-qsi">Calor sensible int. (q_si)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-qsi" step="0.1" value="20.0" required>
-                    <span class="input-unit">kW</span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="input-qli">Calor latent int. (q_li)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-qli" step="0.1" value="3.0" required>
-                    <span class="input-unit">kW</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="input-tr">Temp. seca interior (T_R)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-tr" step="0.5" value="24.0" required>
-                    <span class="input-unit">°C</span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="input-phir">Humitat relativa int. (φ_R)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-phir" step="1" min="1" max="100" value="50.0" required>
-                    <span class="input-unit">%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Condicions Exteriors / Ventilació -->
-            <div class="input-section">
-              <div class="section-title exterior">
-                <span>☀️</span> 2. Ventilació Exterior (V)
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="input-tv">Temp. seca ext. (T_v)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-tv" step="0.5" value="31.0" required>
-                    <span class="input-unit">°C</span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="input-phiv">Humitat relativa ext. (φ_v)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-phiv" step="1" min="1" max="100" value="70.0" required>
-                    <span class="input-unit">%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="input-qv">Cabal ventilació (Q_v)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-qv" step="50" value="1000.0" required>
-                    <span class="input-unit">m³/h</span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="input-infil">Infiltracions directes</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-infil" step="1" min="0" max="100" value="0.0">
-                    <span class="input-unit">%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Criteri d'Impulsió i Alçada -->
-            <div class="input-section">
-              <div class="section-title battery">
-                <span>⚙️</span> 3. Bateria d'Impulsió (I) i Instal·lació
-              </div>
-              <div class="form-row">
-                <div class="form-group full-width">
-                  <label for="select-mode">Criteri d'Impulsió</label>
-                  <div class="input-wrapper">
-                    <select id="select-mode">
-                      <option value="phi_I" selected>Humitat Relativa de Sortida (φ_I)</option>
-                      <option value="TI">Temperatura Seca de Sortida (T_I)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group" id="group-phi-i">
-                  <label for="input-phi-i">Humitat d'impulsió (φ_I)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-phi-i" step="1" min="50" max="100" value="90.0">
-                    <span class="input-unit">%</span>
-                  </div>
-                </div>
-                <div class="form-group" id="group-t-i" style="display: none;">
-                  <label for="input-t-i">Temp. d'impulsió (T_I)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-t-i" step="0.1" value="13.5">
-                    <span class="input-unit">°C</span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="input-altitude">Altitud (Z)</label>
-                  <div class="input-wrapper">
-                    <input type="number" id="input-altitude" step="10" min="0" max="4000" value="0">
-                    <span class="input-unit">m</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" class="btn-primary">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              Calcular Cicle
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      <!-- Àrea de Resultats -->
-      <section class="results-area">
+      <!-- Columna Esquerra: Taules Interactives -->
+      <section class="tables-panel">
         
-        <!-- Taules Específiques de la Diapositiva de Classe -->
-        <div class="card slide-card">
-          <div class="card-header">
-            <div class="card-header-left">
-              <h2>Ej. 1: Climatizador en verano</h2>
-              <span class="slide-subtitle">Plantilla Oficial de Càlcul · ETSEIB - UPC (Prof. Rafael Ruiz)</span>
-            </div>
-            <button type="button" id="btn-toggle-photo" class="btn-secondary">
-              📷 Veure Foto de Pissarra
-            </button>
+        <div class="card-box">
+          <div class="card-title-bar">
+            <h2>Condicions i Cabals del Sistema</h2>
+            <span class="hint-pill">Clica i escriu directament a les cel·les blanques</span>
           </div>
 
-          <!-- Imatge desplegable de referència -->
-          <div id="photo-container" class="photo-modal-inline" style="display: none;">
-            <img src="taula_ex.jpg" alt="Diapositiva de classe de referència" class="reference-img">
+          <!-- 1. Taula Psicromètrica Principal -->
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr class="th-dark">
+                  <th class="text-left" style="width: 100px;">Punt</th>
+                  <th>T seca<br><small>ºC</small></th>
+                  <th>H relativa<br><small>%</small></th>
+                  <th>H abs<br><small>g/kg a.s.</small></th>
+                  <th>V esp.<br><small>m³/kg a.s.</small></th>
+                  <th>Entalpía<br><small>kJ/kg a.s.</small></th>
+                  <th>T de rocío<br><small>ºC</small></th>
+                  <th>T húmeda<br><small>ºC</small></th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Ventilació -->
+                <tr>
+                  <td class="text-left">Vent.</td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-tv" class="cell-input" step="0.1" placeholder="31,0">
+                  </td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-phiv" class="cell-input" step="1" min="1" max="100" placeholder="70%">
+                  </td>
+                  <td id="out-v-w" class="calc-val">—</td>
+                  <td id="out-v-v" class="calc-val">—</td>
+                  <td id="out-v-h" class="calc-val">—</td>
+                  <td id="out-v-tr" class="calc-val">—</td>
+                  <td id="out-v-th" class="calc-val">—</td>
+                </tr>
+
+                <!-- Retorn -->
+                <tr>
+                  <td class="text-left">Retorno</td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-tr" class="cell-input" step="0.1" placeholder="24,0">
+                  </td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-phir" class="cell-input" step="1" min="1" max="100" placeholder="50%">
+                  </td>
+                  <td id="out-r-w" class="calc-val">—</td>
+                  <td id="out-r-v" class="calc-val">—</td>
+                  <td id="out-r-h" class="calc-val">—</td>
+                  <td id="out-r-tr" class="calc-val">—</td>
+                  <td id="out-r-th" class="calc-val">—</td>
+                </tr>
+
+                <!-- Mescla -->
+                <tr>
+                  <td class="text-left">Mezcla</td>
+                  <td id="out-m-t" class="calc-val">—</td>
+                  <td id="out-m-phi" class="calc-val">—</td>
+                  <td id="out-m-w" class="calc-val">—</td>
+                  <td id="out-m-v" class="calc-val">—</td>
+                  <td id="out-m-h" class="calc-val">—</td>
+                  <td id="out-m-tr" class="calc-val">—</td>
+                  <td id="out-m-th" class="calc-val">—</td>
+                </tr>
+
+                <!-- Impulsió -->
+                <tr>
+                  <td class="text-left">Imp.</td>
+                  <td id="out-i-t" class="calc-val">—</td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-phi-i" class="cell-input" step="1" min="50" max="100" placeholder="90%">
+                  </td>
+                  <td id="out-i-w" class="calc-val">—</td>
+                  <td id="out-i-v" class="calc-val">—</td>
+                  <td id="out-i-h" class="calc-val">—</td>
+                  <td id="out-i-tr" class="calc-val">—</td>
+                  <td id="out-i-th" class="calc-val">—</td>
+                </tr>
+
+                <!-- Superfície -->
+                <tr>
+                  <td class="text-left">Superf.</td>
+                  <td id="out-s-t" class="calc-val">—</td>
+                  <td class="text-center" style="font-weight: 600; color: #475569;">100,0%</td>
+                  <td id="out-s-w" class="calc-val">—</td>
+                  <td id="out-s-v" class="calc-val">—</td>
+                  <td id="out-s-h" class="calc-val">—</td>
+                  <td id="out-s-tr" class="calc-val">—</td>
+                  <td id="out-s-th" class="calc-val">—</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          <div class="card-body">
+          <!-- 2. Taula de Potències (Lila) -->
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr class="th-purple">
+                  <th>FBP<br><small>by-pass</small></th>
+                  <th>q_si<br><small>kW</small></th>
+                  <th>q_li<br><small>kW</small></th>
+                  <th>q_sv<br><small>kW</small></th>
+                  <th>q_lv<br><small>kW</small></th>
+                  <th>q_total<br><small>kW</small></th>
+                  <th>FCS_total</th>
+                  <th>FCS_interior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td id="out-fbp" class="calc-val text-center">—</td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-qsi" class="cell-input text-center" step="0.1" placeholder="20,0">
+                  </td>
+                  <td class="editable-cell">
+                    <input type="number" id="in-qli" class="cell-input text-center" step="0.1" placeholder="3,0">
+                  </td>
+                  <td id="out-qsv" class="calc-val text-center">—</td>
+                  <td id="out-qlv" class="calc-val text-center">—</td>
+                  <td id="out-qtot" class="calc-val text-center highlight">—</td>
+                  <td id="out-fcstot" class="calc-val text-center">—</td>
+                  <td id="out-fcsi" class="calc-val text-center">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 3. Taula de Cabals i Condensats -->
+          <div class="subgrid-2">
             
-            <!-- 1. Taula de Condicions Psicromètriques -->
-            <div class="table-container mb-4">
-              <table class="blackboard-table main-props-table">
+            <div class="table-scroll">
+              <table class="data-table">
                 <thead>
-                  <tr class="table-header-dark">
-                    <th class="text-left">Punt / Estat</th>
-                    <th>T seca<br><small>ºC</small></th>
-                    <th>H relativa<br><small>%</small></th>
-                    <th>H abs<br><small>g/kg a.s.</small></th>
-                    <th>V esp.<br><small>m³/kg a.s.</small></th>
-                    <th>Entalpía<br><small>kJ/kg a.s.</small></th>
-                    <th>T de rocío<br><small>ºC</small></th>
-                    <th>T húmeda<br><small>ºC</small></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr id="row-v">
-                    <td class="text-left"><strong>Vent.</strong></td>
-                    <td id="td-v-t">31,0</td>
-                    <td id="td-v-phi">70,0%</td>
-                    <td id="td-v-w">19,9</td>
-                    <td id="td-v-v">0,889</td>
-                    <td id="td-v-h">82,17</td>
-                    <td id="td-v-tr">24,9</td>
-                    <td id="td-v-th">26,4</td>
-                  </tr>
-                  <tr id="row-r">
-                    <td class="text-left"><strong>Retorno</strong></td>
-                    <td id="td-r-t">24,0</td>
-                    <td id="td-r-phi">50,0%</td>
-                    <td id="td-r-w">9,3</td>
-                    <td id="td-r-v">0,854</td>
-                    <td id="td-r-h">47,80</td>
-                    <td id="td-r-tr">12,9</td>
-                    <td id="td-r-th">17,1</td>
-                  </tr>
-                  <tr id="row-m" class="calc-row">
-                    <td class="text-left"><strong>Mezcla</strong></td>
-                    <td id="td-m-t">—</td>
-                    <td id="td-m-phi">—</td>
-                    <td id="td-m-w">—</td>
-                    <td id="td-m-v">—</td>
-                    <td id="td-m-h">—</td>
-                    <td id="td-m-tr">—</td>
-                    <td id="td-m-th">—</td>
-                  </tr>
-                  <tr id="row-i" class="calc-row">
-                    <td class="text-left"><strong>Imp.</strong></td>
-                    <td id="td-i-t">—</td>
-                    <td id="td-i-phi">90,0%</td>
-                    <td id="td-i-w">—</td>
-                    <td id="td-i-v">—</td>
-                    <td id="td-i-h">—</td>
-                    <td id="td-i-tr">—</td>
-                    <td id="td-i-th">—</td>
-                  </tr>
-                  <tr id="row-s" class="calc-row">
-                    <td class="text-left"><strong>Superf.</strong></td>
-                    <td id="td-s-t">—</td>
-                    <td id="td-s-phi">100,0%</td>
-                    <td id="td-s-w">—</td>
-                    <td id="td-s-v">—</td>
-                    <td id="td-s-h">—</td>
-                    <td id="td-s-tr">—</td>
-                    <td id="td-s-th">—</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- 2. Taula de Potències (Lila a la diapositiva) -->
-            <div class="table-container mb-4">
-              <table class="blackboard-table purple-table">
-                <thead>
-                  <tr class="table-header-purple">
-                    <th>FBP<br><small>by-pass</small></th>
-                    <th>q_si<br><small>kW</small></th>
-                    <th>q_li<br><small>kW</small></th>
-                    <th>q_sv<br><small>kW</small></th>
-                    <th>q_lv<br><small>kW</small></th>
-                    <th>q_total<br><small>kW</small></th>
-                    <th>FCS_total</th>
-                    <th>FCS_interior</th>
+                  <tr class="th-gray">
+                    <th>Q_ventilación<br><small>m³/h</small></th>
+                    <th>Q_impulsión<br><small>m³/h</small></th>
+                    <th>Q_retorno<br><small>m³/h</small></th>
+                    <th>Q_mezcla<br><small>m³/h</small></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td id="td-fbp" class="fw-bold">—</td>
-                    <td id="td-qsi">20,00</td>
-                    <td id="td-qli">3,00</td>
-                    <td id="td-qsv" class="fw-bold">—</td>
-                    <td id="td-qlv" class="fw-bold">—</td>
-                    <td id="td-qtot" class="fw-bold highlight-cell">—</td>
-                    <td id="td-fcstot" class="fw-bold">—</td>
-                    <td id="td-fcsi">0,8696</td>
+                    <td class="editable-cell">
+                      <input type="number" id="in-qv" class="cell-input text-center" step="50" placeholder="1000,0">
+                    </td>
+                    <td id="out-qi" class="calc-val text-center">—</td>
+                    <td id="out-qr" class="calc-val text-center">—</td>
+                    <td id="out-qm" class="calc-val text-center">—</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            <!-- 3. Taula de Cabals i Condensats (Inferior a la diapositiva) -->
-            <div class="dual-tables-grid">
-              
-              <!-- Cabals -->
-              <div class="table-container">
-                <table class="blackboard-table gray-table">
-                  <thead>
-                    <tr class="table-header-gray">
-                      <th>Q_ventilación<br><small>m³/h</small></th>
-                      <th>Q_impulsión<br><small>m³/h</small></th>
-                      <th>Q_retorno<br><small>m³/h</small></th>
-                      <th>Q_mezcla<br><small>m³/h</small></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td id="td-qv">1000,0</td>
-                      <td id="td-qi" class="fw-bold">—</td>
-                      <td id="td-qr" class="fw-bold">—</td>
-                      <td id="td-qm" class="fw-bold">—</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Condensats i Infiltració -->
-              <div class="table-container">
-                <table class="blackboard-table gray-table">
-                  <thead>
-                    <tr class="table-header-gray">
-                      <th>m_condens<br><small>kg H₂O/h</small></th>
-                      <th>% caudal ventilació directe<br><small>per infiltracions</small></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td id="td-mcond" class="fw-bold highlight-cell">—</td>
-                      <td id="td-infil-display">0,0 (0%)</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr class="th-gray">
+                    <th>m_condens<br><small>kg H₂O/h</small></th>
+                    <th>Infiltracions<br><small>% ventilació</small></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td id="out-mcond" class="calc-val text-center highlight">—</td>
+                    <td class="editable-cell">
+                      <input type="number" id="in-infil" class="cell-input text-center" step="1" min="0" max="100" placeholder="0%">
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
           </div>
-        </div>
 
-        <!-- Mètriques KPI i Balanços -->
-        <div class="kpi-grid">
-          
-          <!-- Càrregues Interiors -->
-          <div class="kpi-card">
-            <div class="kpi-title">Càrregues Interiors (Sala)</div>
-            <div class="kpi-rows">
-              <div class="kpi-row">
-                <span class="label">Calor sensible (q_si):</span>
-                <span class="val" id="kpi-qsi">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Calor latent (q_li):</span>
-                <span class="val" id="kpi-qli">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Càrrega interior total (q_i):</span>
-                <span class="val" id="kpi-qi">—</span>
-              </div>
-              <div class="kpi-row highlight">
-                <span class="label">FCS interior (FCS_i):</span>
-                <span class="val" id="kpi-fcsi">—</span>
-              </div>
+          <!-- Barra d'Estat i Botó de Solucionar -->
+          <div class="action-status-bar">
+            <div id="status-pill" class="status-badge missing">
+              <span>●</span>
+              <span id="status-text">Falten dades de partida</span>
             </div>
-          </div>
-
-          <!-- Càrregues de Ventilació -->
-          <div class="kpi-card">
-            <div class="kpi-title">Càrregues de Ventilació</div>
-            <div class="kpi-rows">
-              <div class="kpi-row">
-                <span class="label">Sensible ventilació (q_sv):</span>
-                <span class="val" id="kpi-qsv">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Latent ventilació (q_lv):</span>
-                <span class="val" id="kpi-qlv">—</span>
-              </div>
-              <div class="kpi-row highlight">
-                <span class="label">Ventilació total (q_v):</span>
-                <span class="val" id="kpi-qv">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Pressió atmosfèrica (P):</span>
-                <span class="val" id="kpi-patm">—</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Càrregues Totals -->
-          <div class="kpi-card">
-            <div class="kpi-title">Càrregues Totals del Sistema</div>
-            <div class="kpi-rows">
-              <div class="kpi-row">
-                <span class="label">Sensible total (q_s):</span>
-                <span class="val" id="kpi-qstot">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Latent total (q_l):</span>
-                <span class="val" id="kpi-qltot">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Càrrega total (q_t):</span>
-                <span class="val" id="kpi-qtot">—</span>
-              </div>
-              <div class="kpi-row highlight">
-                <span class="label">FCS total (FCS_t):</span>
-                <span class="val" id="kpi-fcstot">—</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bateria de Fred i Condensats -->
-          <div class="kpi-card">
-            <div class="kpi-title">Bateria de Fred & Condensats</div>
-            <div class="kpi-rows">
-              <div class="kpi-row highlight">
-                <span class="label">Potència Bateria (q_bat):</span>
-                <span class="val" id="kpi-qbat">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Factor de Bypass (FBP):</span>
-                <span class="val" id="kpi-fbp">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Aigua condensada:</span>
-                <span class="val" id="kpi-mcond-h">—</span>
-              </div>
-              <div class="kpi-row">
-                <span class="label">Cabal mésic condensat:</span>
-                <span class="val" id="kpi-mcond-s">—</span>
-              </div>
-            </div>
+            <button type="button" id="btn-solve" class="btn-solve">
+              ⚡ Solucionar
+            </button>
           </div>
 
         </div>
-
-        <!-- Diagrama Psicromètric Plotly -->
-        <div class="chart-container-box">
-          <div id="psychro-plot"></div>
-        </div>
-
-        <!-- Teoria i Fórmules Desplegables -->
-        <details class="theory-accordion">
-          <summary>
-            <span>📚 Fonamentació Teòrica i Equacions (Tema 3 i 5 dels Apunts)</span>
-            <span>▼</span>
-          </summary>
-          <div class="theory-content">
-            <p><strong>Factor de Calor Sensible Interior ($FCS_i$):</strong></p>
-            <p><code>FCS_i = q_si / (q_si + q_li)</code>. Defineix el pendent de la recta que uneix l'estat d'impulsió <em>I</em> amb el de retorn <em>R</em>:</p>
-            <p><code>(w_R - w_I) / (T_R - T_I) = ((1 - FCS_i) / FCS_i) * (c_pas / Δh_lg)</code> amb <code>c_pas = 1.006 kJ/(kg·K)</code> i <code>Δh_lg = 2501 kJ/kg</code>.</p>
-            <br>
-            <p><strong>Cabal d'Impulsió (ṁ_I) i Retorn (ṁ_R):</strong></p>
-            <p><code>ṁ_I = q_i / (h_R - h_I)</code> &nbsp;|&nbsp; <code>ṁ_R = ṁ_I - ṁ_v</code> &nbsp;|&nbsp; <code>Q = ṁ · v · 3600 m³/h</code>.</p>
-            <br>
-            <p><strong>Cambra de Mescla (M):</strong></p>
-            <p><code>w_M = (ṁ_v · w_v + ṁ_R · w_R) / ṁ_I</code> &nbsp;|&nbsp; <code>h_M = (ṁ_v · h_v + ṁ_R · h_R) / ṁ_I</code>.</p>
-            <br>
-            <p><strong>Superfície de Bateria (S) i Factor de Bypass (FBP):</strong></p>
-            <p>Prolongació del segment <code>M - I</code> fins a la corba de saturació (<code>φ = 100%</code>). El Factor de Bypass s'obté com <code>FBP = (h_I - h_S) / (h_M - h_S) ≈ (T_I - T_S) / (T_M - T_S)</code>.</p>
-          </div>
-        </details>
 
       </section>
-    </main>
 
-    <!-- Footer -->
-    <footer class="app-footer">
-      <p>Desenvolupat per a l'assignatura Climatització i Refrigeració (ETSEIB - UPC) · Execució 100% client-side compatible amb GitHub Pages</p>
-    </footer>
+      <!-- Columna Dreta: Diagrama Psicromètric -->
+      <section class="chart-panel">
+        
+        <div class="chart-box">
+          <div class="chart-header">
+            <div>
+              <h2>Diagrama Psicromètric</h2>
+              <span class="chart-subtitle">Carta Carrier / ASHRAE (P = 101,325 kPa)</span>
+            </div>
+          </div>
+          
+          <div id="psychro-container"></div>
+        </div>
+
+        <!-- Targetes de Resum Ràpid -->
+        <div class="quick-kpi-bar">
+          <div class="kpi-tile featured">
+            <div class="label">Potència Bateria</div>
+            <div class="value" id="kpi-quick-qbat">—</div>
+          </div>
+          <div class="kpi-tile">
+            <div class="label">Bypass (FBP)</div>
+            <div class="value" id="kpi-quick-fbp">—</div>
+          </div>
+          <div class="kpi-tile">
+            <div class="label">Condensats</div>
+            <div class="value" id="kpi-quick-mcond">—</div>
+          </div>
+          <div class="kpi-tile">
+            <div class="label">Cabal Impulsió</div>
+            <div class="value" id="kpi-quick-qi">—</div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
 
   </div>
 
-  <!-- Scripts de l'aplicació -->
+  <!-- Scripts -->
   <script src="js/psychrolib.js"></script>
   <script src="js/solver.js"></script>
   <script src="js/chart.js"></script>

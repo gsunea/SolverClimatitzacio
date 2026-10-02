@@ -1,256 +1,229 @@
 /**
  * app.js
- * Controlador principal de la interfície d'usuari i integració
- * entre DOM, Solver i Plotly.
+ * Controlador per a la nova interfície estil full de càlcul (spreadsheet).
+ * Gestiona inputs directes a taula, comprovació d'estat i renderitzat del diagrama.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Elements del formulari
-  const form = document.getElementById('clima-form');
-  const inputQsi = document.getElementById('input-qsi');
-  const inputQli = document.getElementById('input-qli');
-  const inputTv = document.getElementById('input-tv');
-  const inputPhiV = document.getElementById('input-phiv');
-  const inputQv = document.getElementById('input-qv');
-  const inputTR = document.getElementById('input-tr');
-  const inputPhiR = document.getElementById('input-phir');
-  const selectMode = document.getElementById('select-mode');
-  const inputPhiI = document.getElementById('input-phi-i');
-  const inputTI = document.getElementById('input-t-i');
-  const groupPhiI = document.getElementById('group-phi-i');
-  const groupTI = document.getElementById('group-t-i');
-  const inputInfil = document.getElementById('input-infil');
-  const inputAltitude = document.getElementById('input-altitude');
+  // Inputs de la taula
+  const inTv = document.getElementById('in-tv');
+  const inPhiV = document.getElementById('in-phiv');
+  const inTR = document.getElementById('in-tr');
+  const inPhiR = document.getElementById('in-phir');
+  const inPhiI = document.getElementById('in-phi-i');
+  const inQsi = document.getElementById('in-qsi');
+  const inQli = document.getElementById('in-qli');
+  const inQv = document.getElementById('in-qv');
+  const inInfil = document.getElementById('in-infil');
 
-  // Presets
-  const presets = {
-    ej1: {
-      q_si: 20.0,
-      q_li: 3.0,
-      Tv: 31.0,
-      phi_v: 70.0,
-      Q_v: 1000.0,
-      TR: 24.0,
-      phi_R: 50.0,
-      mode: 'phi_I',
-      phi_I: 90.0,
-      target_TI: 13.5,
-      fr_infiltr: 0.0,
-      altitude: 0
-    },
-    alta_humitat: {
-      q_si: 25.0,
-      q_li: 8.0,
-      Tv: 35.0,
-      phi_v: 75.0,
-      Q_v: 1500.0,
-      TR: 25.0,
-      phi_R: 50.0,
-      mode: 'phi_I',
-      phi_I: 95.0,
-      target_TI: 14.0,
-      fr_infiltr: 0.0,
-      altitude: 0
-    },
-    moderat: {
-      q_si: 15.0,
-      q_li: 2.5,
-      Tv: 29.0,
-      phi_v: 60.0,
-      Q_v: 800.0,
-      TR: 23.0,
-      phi_R: 50.0,
-      mode: 'phi_I',
-      phi_I: 90.0,
-      target_TI: 13.0,
-      fr_infiltr: 0.05,
-      altitude: 100
-    }
-  };
+  // Botons i barra d'estat
+  const btnSolve = document.getElementById('btn-solve');
+  const btnExample = document.getElementById('btn-example');
+  const btnClear = document.getElementById('btn-clear');
+  const statusPill = document.getElementById('status-pill');
+  const statusText = document.getElementById('status-text');
 
-  // Botons de preset
-  document.querySelectorAll('.preset-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      const presetKey = e.target.getAttribute('data-preset');
-      if (presets[presetKey]) {
-        loadPreset(presets[presetKey]);
-      }
-    });
-  });
+  // Llista d'inputs editables
+  const editableInputs = [inTv, inPhiV, inTR, inPhiR, inPhiI, inQsi, inQli, inQv, inInfil];
 
-  function loadPreset(p) {
-    inputQsi.value = p.q_si;
-    inputQli.value = p.q_li;
-    inputTv.value = p.Tv;
-    inputPhiV.value = p.phi_v;
-    inputQv.value = p.Q_v;
-    inputTR.value = p.TR;
-    inputPhiR.value = p.phi_R;
-    selectMode.value = p.mode;
-    inputPhiI.value = p.phi_I;
-    if (p.target_TI !== undefined) inputTI.value = p.target_TI;
-    inputInfil.value = p.fr_infiltr * 100.0;
-    inputAltitude.value = p.altitude;
-
-    updateModeUI();
-    recalculate();
+  // Format de números amb coma decimal
+  function fmt(val, decimals = 1) {
+    if (val === null || val === undefined || isNaN(val)) return '—';
+    return Number(val).toFixed(decimals).replace('.', ',');
   }
 
-  function updateModeUI() {
-    const mode = selectMode.value;
-    if (mode === 'phi_I') {
-      groupPhiI.style.display = 'flex';
-      groupTI.style.display = 'none';
+  function setCell(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  /**
+   * Comprova si les dades d'entrada mínimes necessàries estan presents
+   */
+  function checkDataStatus() {
+    const hasTv = inTv.value.trim() !== '';
+    const hasPhiV = inPhiV.value.trim() !== '';
+    const hasTR = inTR.value.trim() !== '';
+    const hasPhiR = inPhiR.value.trim() !== '';
+    const hasQsi = inQsi.value.trim() !== '';
+    const hasQli = inQli.value.trim() !== '';
+    const hasQv = inQv.value.trim() !== '';
+
+    const isReady = hasTv && hasPhiV && hasTR && hasPhiR && hasQsi && hasQli && hasQv;
+
+    if (isReady) {
+      statusPill.className = 'status-badge ready';
+      statusText.textContent = 'Dades suficients per calcular';
+      btnSolve.style.opacity = '1';
     } else {
-      groupPhiI.style.display = 'none';
-      groupTI.style.display = 'flex';
+      statusPill.className = 'status-badge missing';
+      statusText.textContent = 'Falten dades de partida';
+      btnSolve.style.opacity = '0.85';
     }
+
+    return isReady;
   }
 
-  selectMode.addEventListener('change', () => {
-    updateModeUI();
-    recalculate();
-  });
-
-  // Recàlcul reactiu
-  const allInputs = [
-    inputQsi, inputQli, inputTv, inputPhiV, inputQv,
-    inputTR, inputPhiR, inputPhiI, inputTI, inputInfil, inputAltitude
-  ];
-
-  allInputs.forEach(input => {
+  // Escoltar canvis als inputs per actualitzar l'estat
+  editableInputs.forEach(input => {
     if (input) {
-      input.addEventListener('input', () => recalculate());
+      input.addEventListener('input', checkDataStatus);
     }
   });
 
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      recalculate();
-    });
-  }
-
-  function getFormData() {
+  /**
+   * Obté el paquet d'entrades per al Solver
+   */
+  function getInputs() {
     return {
-      q_si: parseFloat(inputQsi.value) || 0,
-      q_li: parseFloat(inputQli.value) || 0,
-      Tv: parseFloat(inputTv.value) || 0,
-      phi_v: parseFloat(inputPhiV.value) || 0,
-      Q_v: parseFloat(inputQv.value) || 0,
-      TR: parseFloat(inputTR.value) || 0,
-      phi_R: parseFloat(inputPhiR.value) || 0,
-      mode: selectMode.value,
-      phi_I: parseFloat(inputPhiI.value) || 90,
-      target_TI: parseFloat(inputTI.value) || 13,
-      fr_infiltr: (parseFloat(inputInfil.value) || 0) / 100.0,
-      altitude: parseFloat(inputAltitude.value) || 0
+      Tv: parseFloat(inTv.value),
+      phi_v: parseFloat(inPhiV.value),
+      TR: parseFloat(inTR.value),
+      phi_R: parseFloat(inPhiR.value),
+      phi_I: inPhiI.value.trim() !== '' ? parseFloat(inPhiI.value) : 90.0,
+      q_si: parseFloat(inQsi.value),
+      q_li: parseFloat(inQli.value),
+      Q_v: parseFloat(inQv.value),
+      fr_infiltr: (parseFloat(inInfil.value) || 0) / 100.0,
+      altitude: 0
     };
   }
 
-  // Toggle foto de la pissarra
-  const btnTogglePhoto = document.getElementById('btn-toggle-photo');
-  const photoContainer = document.getElementById('photo-container');
-  if (btnTogglePhoto && photoContainer) {
-    btnTogglePhoto.addEventListener('click', () => {
-      const isHidden = photoContainer.style.display === 'none';
-      photoContainer.style.display = isHidden ? 'block' : 'none';
-      btnTogglePhoto.textContent = isHidden ? '✕ Amagar Foto' : '📷 Veure Foto de Pissarra';
-    });
-  }
+  /**
+   * Executa la resolució i omple totes les cel·les i el gràfic
+   */
+  function solveSystem() {
+    if (!checkDataStatus()) {
+      alert('Si us plau, omple totes les dades de partida necessàries abans de solucionar.');
+      return;
+    }
 
-  function recalculate() {
     try {
-      const data = getFormData();
-      const solution = ClimaSolver.solve(data);
-      updateTable(solution, data);
-      updateKPIs(solution);
-      PsychroChart.render(solution);
+      const inputs = getInputs();
+      const sol = ClimaSolver.solve(inputs);
+      const pts = sol.points;
+      const pow = sol.powers;
+
+      // 1. Taula Psicromètrica
+      // Ventilació
+      setCell('out-v-w', fmt(pts.V.w_g_kg, 1));
+      setCell('out-v-v', fmt(pts.V.v, 3));
+      setCell('out-v-h', fmt(pts.V.h, 2));
+      setCell('out-v-tr', fmt(pts.V.tr, 1));
+      setCell('out-v-th', fmt(pts.V.th, 1));
+
+      // Retorn
+      setCell('out-r-w', fmt(pts.R.w_g_kg, 1));
+      setCell('out-r-v', fmt(pts.R.v, 3));
+      setCell('out-r-h', fmt(pts.R.h, 2));
+      setCell('out-r-tr', fmt(pts.R.tr, 1));
+      setCell('out-r-th', fmt(pts.R.th, 1));
+
+      // Mescla
+      setCell('out-m-t', fmt(pts.M.t, 1));
+      setCell('out-m-phi', `${fmt(pts.M.phi, 1)}%`);
+      setCell('out-m-w', fmt(pts.M.w_g_kg, 1));
+      setCell('out-m-v', fmt(pts.M.v, 3));
+      setCell('out-m-h', fmt(pts.M.h, 2));
+      setCell('out-m-tr', fmt(pts.M.tr, 1));
+      setCell('out-m-th', fmt(pts.M.th, 1));
+
+      // Impulsió
+      setCell('out-i-t', fmt(pts.I.t, 1));
+      setCell('out-i-w', fmt(pts.I.w_g_kg, 1));
+      setCell('out-i-v', fmt(pts.I.v, 3));
+      setCell('out-i-h', fmt(pts.I.h, 2));
+      setCell('out-i-tr', fmt(pts.I.tr, 1));
+      setCell('out-i-th', fmt(pts.I.th, 1));
+
+      // Superfície
+      setCell('out-s-t', fmt(pts.S.t, 1));
+      setCell('out-s-w', fmt(pts.S.w_g_kg, 1));
+      setCell('out-s-v', fmt(pts.S.v, 3));
+      setCell('out-s-h', fmt(pts.S.h, 2));
+      setCell('out-s-tr', fmt(pts.S.tr, 1));
+      setCell('out-s-th', fmt(pts.S.th, 1));
+
+      // 2. Taula de Potències
+      setCell('out-fbp', fmt(pow.FBP, 4));
+      setCell('out-qsv', fmt(pow.q_sv, 2));
+      setCell('out-qlv', fmt(pow.q_lv, 2));
+      setCell('out-qtot', fmt(pow.q_total, 2));
+      setCell('out-fcstot', fmt(pow.FCS_total, 4));
+      setCell('out-fcsi', fmt(pow.FCS_i, 4));
+
+      // 3. Taula de Cabals i Condensats
+      setCell('out-qi', fmt(pts.I.Q, 1));
+      setCell('out-qr', fmt(pts.R.Q, 1));
+      setCell('out-qm', fmt(pts.M.Q, 1));
+      setCell('out-mcond', fmt(pow.M_cond_h, 2));
+
+      // Indicadors ràpids sota el diagrama
+      setCell('kpi-quick-qbat', `${fmt(pow.q_bateria, 2)} kW`);
+      setCell('kpi-quick-fbp', fmt(pow.FBP, 3));
+      setCell('kpi-quick-mcond', `${fmt(pow.M_cond_h, 1)} kg/h`);
+      setCell('kpi-quick-qi', `${fmt(pts.I.Q, 0)} m³/h`);
+
+      // Dibuixar diagrama psicromètric amb la solució
+      PsychroChart.render(sol);
     } catch (err) {
-      console.error('Error calculant el cicle:', err);
+      console.error('Error calculant:', err);
+      alert('Error en els càlculs termodinàmics. Comprova que els valors introduïts siguin viables.');
     }
   }
 
-  function updateTable(sol, data) {
-    const pts = sol.points;
-    const pow = sol.powers;
-    const rows = ['V', 'R', 'M', 'I', 'S'];
+  btnSolve.addEventListener('click', solveSystem);
 
-    const setCell = (cellId, val) => {
-      const el = document.getElementById(cellId);
-      if (el) el.textContent = val;
-    };
+  /**
+   * Carrega l'exemple de classe oficial
+   */
+  function loadExample() {
+    inTv.value = 31.0;
+    inPhiV.value = 70.0;
+    inTR.value = 24.0;
+    inPhiR.value = 50.0;
+    inPhiI.value = 90.0;
+    inQsi.value = 20.0;
+    inQli.value = 3.0;
+    inQv.value = 1000.0;
+    inInfil.value = 0;
 
-    // 1. Taula de Condicions Psicromètriques
-    rows.forEach(key => {
-      const pt = pts[key];
-      if (!pt) return;
+    checkDataStatus();
+    solveSystem();
+  }
 
-      const prefix = `td-${key.toLowerCase()}`;
-      setCell(`${prefix}-t`, pt.t.toFixed(1).replace('.', ','));
-      setCell(`${prefix}-phi`, `${pt.phi.toFixed(1).replace('.', ',')}%`);
-      setCell(`${prefix}-w`, pt.w_g_kg.toFixed(1).replace('.', ','));
-      setCell(`${prefix}-v`, pt.v.toFixed(3).replace('.', ','));
-      setCell(`${prefix}-h`, pt.h.toFixed(2).replace('.', ','));
-      setCell(`${prefix}-tr`, pt.tr.toFixed(1).replace('.', ','));
-      setCell(`${prefix}-th`, pt.th.toFixed(1).replace('.', ','));
+  btnExample.addEventListener('click', loadExample);
+
+  /**
+   * Neteja totes les cel·les i deixa la taula buida
+   */
+  function clearAll() {
+    editableInputs.forEach(input => {
+      if (input) input.value = '';
     });
+    inPhiI.value = '90'; // valor habitual per defecte
 
-    // 2. Taula de Potències (Lila)
-    setCell('td-fbp', pow.FBP.toFixed(4).replace('.', ','));
-    setCell('td-qsi', pow.q_si.toFixed(2).replace('.', ','));
-    setCell('td-qli', pow.q_li.toFixed(2).replace('.', ','));
-    setCell('td-qsv', pow.q_sv.toFixed(2).replace('.', ','));
-    setCell('td-qlv', pow.q_lv.toFixed(2).replace('.', ','));
-    setCell('td-qtot', pow.q_total.toFixed(2).replace('.', ','));
-    setCell('td-fcstot', pow.FCS_total.toFixed(4).replace('.', ','));
-    setCell('td-fcsi', pow.FCS_i.toFixed(4).replace('.', ','));
+    // Buidar cel·les de sortida
+    const outputIds = [
+      'out-v-w', 'out-v-v', 'out-v-h', 'out-v-tr', 'out-v-th',
+      'out-r-w', 'out-r-v', 'out-r-h', 'out-r-tr', 'out-r-th',
+      'out-m-t', 'out-m-phi', 'out-m-w', 'out-m-v', 'out-m-h', 'out-m-tr', 'out-m-th',
+      'out-i-t', 'out-i-w', 'out-i-v', 'out-i-h', 'out-i-tr', 'out-i-th',
+      'out-s-t', 'out-s-w', 'out-s-v', 'out-s-h', 'out-s-tr', 'out-s-th',
+      'out-fbp', 'out-qsv', 'out-qlv', 'out-qtot', 'out-fcstot', 'out-fcsi',
+      'out-qi', 'out-qr', 'out-qm', 'out-mcond',
+      'kpi-quick-qbat', 'kpi-quick-fbp', 'kpi-quick-mcond', 'kpi-quick-qi'
+    ];
 
-    // 3. Taula de Cabals i Condensats
-    setCell('td-qv', pts.V.Q.toFixed(1).replace('.', ','));
-    setCell('td-qi', pts.I.Q.toFixed(1).replace('.', ','));
-    setCell('td-qr', pts.R.Q.toFixed(1).replace('.', ','));
-    setCell('td-qm', pts.M.Q.toFixed(1).replace('.', ','));
+    outputIds.forEach(id => setCell(id, '—'));
 
-    setCell('td-mcond', pow.M_cond_h.toFixed(2).replace('.', ','));
-    const qInfil = (data.fr_infiltr * data.q_v_total_vol || data.fr_infiltr * data.Q_v);
-    setCell('td-infil-display', `${qInfil.toFixed(1).replace('.', ',')} (${(data.fr_infiltr * 100).toFixed(0)}%)`);
+    checkDataStatus();
+    // Renderitza la carta base buida
+    PsychroChart.render(null);
   }
 
-  function updateKPIs(sol) {
-    const pow = sol.powers;
-    const setText = (id, txt) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = txt;
-    };
+  btnClear.addEventListener('click', clearAll);
 
-    // Internes
-    setText('kpi-qsi', `${pow.q_si.toFixed(2)} kW`);
-    setText('kpi-qli', `${pow.q_li.toFixed(2)} kW`);
-    setText('kpi-qi', `${pow.q_i.toFixed(2)} kW`);
-    setText('kpi-fcsi', `${pow.FCS_i.toFixed(4)}`);
-
-    // Ventilació
-    setText('kpi-qsv', `${pow.q_sv.toFixed(2)} kW`);
-    setText('kpi-qlv', `${pow.q_lv.toFixed(2)} kW`);
-    setText('kpi-qv', `${pow.q_v.toFixed(2)} kW`);
-
-    // Totals
-    setText('kpi-qstot', `${pow.q_s_total.toFixed(2)} kW`);
-    setText('kpi-qltot', `${pow.q_l_total.toFixed(2)} kW`);
-    setText('kpi-qtot', `${pow.q_total.toFixed(2)} kW`);
-    setText('kpi-fcstot', `${pow.FCS_total.toFixed(4)}`);
-
-    // Bateria i operació
-    setText('kpi-qbat', `${pow.q_bateria.toFixed(2)} kW`);
-    setText('kpi-fbp', `${pow.FBP.toFixed(4)} (${(pow.FBP * 100).toFixed(1)}%)`);
-    setText('kpi-mcond-h', `${pow.M_cond_h.toFixed(2)} kg/h`);
-    setText('kpi-mcond-s', `${(pow.m_dot_cond * 1000.0).toFixed(2)} g/s`);
-    setText('kpi-patm', `${pow.P_atm_kPa.toFixed(3)} kPa`);
-  }
-
-  // Carrega inicial
-  loadPreset(presets.ej1);
+  // Inicialització: Carregar l'exemple per defecte
+  loadExample();
 });
