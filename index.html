@@ -53,7 +53,7 @@
         <div class="card-box">
           <div class="card-title-bar">
             <h2>Dades del Sistema i Estats Psicromètrics</h2>
-            <span class="hint-pill">Edició directa a les cel·les blanques</span>
+            <span class="hint-pill">Edició flexible: introdueix 2 propietats qualsevol per estat (V i R)</span>
           </div>
 
           <!-- 1. Taula Psicromètrica Principal -->
@@ -61,7 +61,7 @@
             <table class="data-table">
               <thead>
                 <tr class="th-dark">
-                  <th class="text-left" style="width: 95px;">Punt</th>
+                  <th class="text-left" style="width: 105px;">Punt</th>
                   <th>T seca<br><small>ºC</small></th>
                   <th>H relativa<br><small>%</small></th>
                   <th>H abs<br><small>g/kg a.s.</small></th>
@@ -74,39 +74,76 @@
               <tbody>
                 <!-- Ventilació -->
                 <tr>
-                  <td class="text-left">Vent.</td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-tv" class="cell-input" step="0.1" placeholder="31,0">
+                  <td class="text-left point-header-cell">
+                    <div class="point-badge-row">
+                      <span class="point-name">Vent.</span>
+                      <span id="badge-v-props" class="prop-counter-pill ready" title="Propietats que defineixen Ventilació">2/2</span>
+                      <button type="button" class="btn-clear-row" id="btn-clear-v" title="Netejar fila de Ventilació">×</button>
+                    </div>
                   </td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-phiv" class="cell-input" step="1" min="1" max="100" placeholder="70%">
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-t" class="cell-input is-source" placeholder="31,0">
                   </td>
-                  <td id="out-v-w" class="calc-val">—</td>
-                  <td id="out-v-v" class="calc-val">—</td>
-                  <td id="out-v-h" class="calc-val">—</td>
-                  <td id="out-v-tr" class="calc-val">—</td>
-                  <td id="out-v-th" class="calc-val">—</td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-phi" class="cell-input is-source" placeholder="70%">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-w" class="cell-input is-calc" placeholder="19,9">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-v" class="cell-input is-calc" placeholder="0,889">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-h" class="cell-input is-calc" placeholder="82,2">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-tr" class="cell-input is-calc" placeholder="24,9">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-v-th" class="cell-input is-calc" placeholder="26,4">
+                  </td>
                 </tr>
 
                 <!-- Retorn -->
                 <tr>
-                  <td class="text-left">Retorno</td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-tr" class="cell-input" step="0.1" placeholder="24,0">
+                  <td class="text-left point-header-cell">
+                    <div class="point-badge-row">
+                      <span class="point-name">Retorno</span>
+                      <span id="badge-r-props" class="prop-counter-pill ready" title="Propietats que defineixen Retorn">2/2</span>
+                      <button type="button" class="btn-clear-row" id="btn-clear-r" title="Netejar fila de Retorn">×</button>
+                    </div>
                   </td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-phir" class="cell-input" step="1" min="1" max="100" placeholder="50%">
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-t" class="cell-input is-source" placeholder="24,0">
                   </td>
-                  <td id="out-r-w" class="calc-val">—</td>
-                  <td id="out-r-v" class="calc-val">—</td>
-                  <td id="out-r-h" class="calc-val">—</td>
-                  <td id="out-r-tr" class="calc-val">—</td>
-                  <td id="out-r-th" class="calc-val">—</td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-phi" class="cell-input is-source" placeholder="50%">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-w" class="cell-input is-calc" placeholder="9,3">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-v" class="cell-input is-calc" placeholder="0,854">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-h" class="cell-input is-calc" placeholder="47,8">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-tr" class="cell-input is-calc" placeholder="12,9">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-r-th" class="cell-input is-calc" placeholder="17,1">
+                  </td>
                 </tr>
 
                 <!-- Mescla -->
                 <tr>
-                  <td class="text-left">Mezcla</td>
+                  <td class="text-left point-header-cell">
+                    <div class="point-badge-row">
+                      <span class="point-name">Mezcla</span>
+                      <span class="prop-counter-pill ready" title="Calculat automàticament per balanç">auto</span>
+                    </div>
+                  </td>
                   <td id="out-m-t" class="calc-val">—</td>
                   <td id="out-m-phi" class="calc-val">—</td>
                   <td id="out-m-w" class="calc-val">—</td>
@@ -118,12 +155,21 @@
 
                 <!-- Impulsió -->
                 <tr>
-                  <td class="text-left">Imp.</td>
-                  <td id="out-i-t" class="calc-val">—</td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-phi-i" class="cell-input" step="1" min="50" max="100" placeholder="90%">
+                  <td class="text-left point-header-cell">
+                    <div class="point-badge-row">
+                      <span class="point-name">Imp.</span>
+                      <span id="badge-i-cond" class="prop-counter-pill ready" title="Condició sobre la recta de maniobra">φ_I</span>
+                    </div>
                   </td>
-                  <td id="out-i-w" class="calc-val">—</td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-i-t" class="cell-input is-calc" placeholder="T_I">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-i-phi" class="cell-input is-source" placeholder="90%">
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-i-w" class="cell-input is-calc" placeholder="w_I">
+                  </td>
                   <td id="out-i-v" class="calc-val">—</td>
                   <td id="out-i-h" class="calc-val">—</td>
                   <td id="out-i-tr" class="calc-val">—</td>
@@ -132,9 +178,16 @@
 
                 <!-- Superfície -->
                 <tr>
-                  <td class="text-left">Superf.</td>
-                  <td id="out-s-t" class="calc-val">—</td>
-                  <td class="text-center" style="color: var(--text-muted);">100,0%</td>
+                  <td class="text-left point-header-cell">
+                    <div class="point-badge-row">
+                      <span class="point-name">Superf.</span>
+                      <span class="prop-counter-pill ready" title="Superfície de bateria a saturació (φ = 100%)">sat</span>
+                    </div>
+                  </td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="cell-s-t" class="cell-input is-calc" placeholder="T_S">
+                  </td>
+                  <td class="text-center" style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.82rem;">100,0%</td>
                   <td id="out-s-w" class="calc-val">—</td>
                   <td id="out-s-v" class="calc-val">—</td>
                   <td id="out-s-h" class="calc-val">—</td>
@@ -163,17 +216,19 @@
               <tbody>
                 <tr>
                   <td id="out-fbp" class="calc-val text-center">—</td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-qsi" class="cell-input text-center" step="0.1" placeholder="20,0">
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="in-qsi" class="cell-input text-center is-source" placeholder="20,0">
                   </td>
-                  <td class="editable-cell">
-                    <input type="number" id="in-qli" class="cell-input text-center" step="0.1" placeholder="3,0">
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="in-qli" class="cell-input text-center is-source" placeholder="3,0">
                   </td>
                   <td id="out-qsv" class="calc-val text-center">—</td>
                   <td id="out-qlv" class="calc-val text-center">—</td>
                   <td id="out-qtot" class="calc-val text-center highlight">—</td>
                   <td id="out-fcstot" class="calc-val text-center">—</td>
-                  <td id="out-fcsi" class="calc-val text-center">—</td>
+                  <td class="cell-wrap">
+                    <input type="text" inputmode="decimal" id="in-fcsi" class="cell-input text-center is-calc" placeholder="0,8696">
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -194,10 +249,12 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td class="editable-cell">
-                      <input type="number" id="in-qv" class="cell-input text-center" step="50" placeholder="1000,0">
+                    <td class="cell-wrap">
+                      <input type="text" inputmode="decimal" id="in-qv" class="cell-input text-center is-source" placeholder="1000,0">
                     </td>
-                    <td id="out-qi" class="calc-val text-center">—</td>
+                    <td class="cell-wrap">
+                      <input type="text" inputmode="decimal" id="in-qi" class="cell-input text-center is-calc" placeholder="—">
+                    </td>
                     <td id="out-qr" class="calc-val text-center">—</td>
                     <td id="out-qm" class="calc-val text-center">—</td>
                   </tr>
@@ -216,8 +273,8 @@
                 <tbody>
                   <tr>
                     <td id="out-mcond" class="calc-val text-center highlight">—</td>
-                    <td class="editable-cell">
-                      <input type="number" id="in-infil" class="cell-input text-center" step="1" min="0" max="100" placeholder="0%">
+                    <td class="cell-wrap">
+                      <input type="text" inputmode="decimal" id="in-infil" class="cell-input text-center is-source" placeholder="0%">
                     </td>
                   </tr>
                 </tbody>

@@ -14,6 +14,83 @@ const StepDebugger = (() => {
     return Number(val).toFixed(dec);
   }
 
+  function getPropName(key) {
+    switch (key) {
+      case 't': return 'temperatura seca (T)';
+      case 'phi': return 'humitat relativa (φ)';
+      case 'w': return 'humitat absoluta (w)';
+      case 'h': return 'entalpia (h)';
+      case 'tr': return 'temperatura de rocío (Tr)';
+      case 'th': return 'temperatura humida (Th)';
+      case 'v': return 'volum específic (v)';
+      default: return key;
+    }
+  }
+
+  function getPointLatexInfo(pt, nameLabel, symbol) {
+    const src = pt.sourceProps || ['t', 'phi'];
+    const hasW = src.includes('w') || src.includes('tr');
+    const hasPhi = src.includes('phi');
+    const hasT = src.includes('t');
+    const hasTh = src.includes('th');
+
+    let formula = '';
+    let substituted = '';
+
+    if (hasW && hasPhi) {
+      formula = `\\begin{aligned}
+P_w &= \\frac{w \\cdot P}{0.621945 + w} \\\\[4pt]
+P_{ws}(T) &= \\frac{P_w}{\\varphi} \\implies T = T_{\\text{sat}}(P_{ws}) \\\\[4pt]
+h &= 1.006 \\cdot T + w \\cdot (2501 + 1.86 \\cdot T) \\\\[4pt]
+v &= (1 + 1.607858 \\cdot w) \\cdot \\frac{0.287042 \\cdot (T + 273.15)}{P}
+\\end{aligned}`;
+      substituted = `\\begin{aligned}
+\\text{${nameLabel} (${symbol}) [donats } w_{${symbol}}, \\varphi_{${symbol}}\\text{]:} &\\\\[2pt]
+&\\quad w_{${symbol}} = ${fmt(pt.w_g_kg, 2)}\\text{ g/kg},\\; \\varphi_{${symbol}} = ${fmt(pt.phi, 0)}\\% \\\\[2pt]
+&\\quad P_{w,${symbol}} = ${fmt(pt.pw, 1)}\\text{ Pa},\\; P_{ws}(T_{${symbol}}) = ${fmt(pt.pw / (pt.phi / 100), 1)}\\text{ Pa} \\\\[2pt]
+&\\quad T_{${symbol}} = \\mathbf{${fmt(pt.t, 1)}\\text{ °C}},\\; h_{${symbol}} = ${fmt(pt.h, 2)}\\text{ kJ/kg},\\; v_{${symbol}} = ${fmt(pt.v, 3)}\\text{ m}^3\\text{/kg}
+\\end{aligned}`;
+    } else if (hasT && hasW) {
+      formula = `\\begin{aligned}
+P_w &= \\frac{w \\cdot P}{0.621945 + w} \\\\[4pt]
+\\varphi &= \\frac{P_w}{P_{ws}(T)} \\\\[4pt]
+h &= 1.006 \\cdot T + w \\cdot (2501 + 1.86 \\cdot T) \\\\[4pt]
+v &= (1 + 1.607858 \\cdot w) \\cdot \\frac{0.287042 \\cdot (T + 273.15)}{P}
+\\end{aligned}`;
+      substituted = `\\begin{aligned}
+\\text{${nameLabel} (${symbol}) [donats } T_{${symbol}}, w_{${symbol}}\\text{]:} &\\\\[2pt]
+&\\quad T_{${symbol}} = ${fmt(pt.t, 1)}\\text{ °C},\\; w_{${symbol}} = ${fmt(pt.w_g_kg, 2)}\\text{ g/kg} \\\\[2pt]
+&\\quad \\varphi_{${symbol}} = \\mathbf{${fmt(pt.phi, 1)}\\%},\\; h_{${symbol}} = ${fmt(pt.h, 2)}\\text{ kJ/kg},\\; v_{${symbol}} = ${fmt(pt.v, 3)}\\text{ m}^3\\text{/kg}
+\\end{aligned}`;
+    } else if (hasT && hasTh) {
+      formula = `\\begin{aligned}
+w &= w(T, T_h, P) \\quad (\\text{equació psicròmetre Carrier}) \\\\[4pt]
+\\varphi &= \\frac{P_w(w)}{P_{ws}(T)} \\\\[4pt]
+h &= 1.006 \\cdot T + w \\cdot (2501 + 1.86 \\cdot T)
+\\end{aligned}`;
+      substituted = `\\begin{aligned}
+\\text{${nameLabel} (${symbol}) [donats } T_{${symbol}}, T_{h,${symbol}}\\text{]:} &\\\\[2pt]
+&\\quad T_{${symbol}} = ${fmt(pt.t, 1)}\\text{ °C},\\; T_{h,${symbol}} = ${fmt(pt.th, 1)}\\text{ °C} \\\\[2pt]
+&\\quad w_{${symbol}} = \\mathbf{${fmt(pt.w_g_kg, 2)}\\text{ g/kg}},\\; \\varphi_{${symbol}} = \\mathbf{${fmt(pt.phi, 1)}\\%} \\\\[2pt]
+&\\quad h_{${symbol}} = ${fmt(pt.h, 2)}\\text{ kJ/kg},\\; v_{${symbol}} = ${fmt(pt.v, 3)}\\text{ m}^3\\text{/kg}
+\\end{aligned}`;
+    } else {
+      formula = `\\begin{aligned}
+P_w &= \\varphi \\cdot P_{ws}(T) \\\\[4pt]
+w &= 0.621945 \\cdot \\frac{P_w}{P - P_w} \\\\[4pt]
+h &= 1.006 \\cdot T + w \\cdot (2501 + 1.86 \\cdot T) \\\\[4pt]
+v &= (1 + 1.607858 \\cdot w) \\cdot \\frac{0.287042 \\cdot (T + 273.15)}{P}
+\\end{aligned}`;
+      substituted = `\\begin{aligned}
+\\text{${nameLabel} (${symbol}) [donats } T_{${symbol}}, \\varphi_{${symbol}}\\text{]:} &\\\\[2pt]
+&\\quad T_{${symbol}} = ${fmt(pt.t, 1)}\\text{ °C},\\; \\varphi_{${symbol}} = ${fmt(pt.phi, 0)}\\% \\\\[2pt]
+&\\quad w_{${symbol}} = ${fmt(pt.w_g_kg, 2)}\\text{ g/kg},\\; h_{${symbol}} = ${fmt(pt.h, 2)}\\text{ kJ/kg},\\; v_{${symbol}} = ${fmt(pt.v, 3)}\\text{ m}^3\\text{/kg}
+\\end{aligned}`;
+    }
+
+    return { formula, substituted };
+  }
+
   /**
    * Genera el contingut de cada pas amb LaTeX net i compatible amb KaTeX
    */
@@ -29,23 +106,18 @@ const StepDebugger = (() => {
     const S = pts.S;
 
     switch (stepIndex) {
-      case 1:
+      case 1: {
+        const vInfo = getPointLatexInfo(V, 'Ventilació', 'v');
+        const rInfo = getPointLatexInfo(R, 'Retorn', 'R');
+        const vSrcNames = (V.sourceProps || ['t', 'phi']).map(getPropName).join(' i ');
+        const rSrcNames = (R.sourceProps || ['t', 'phi']).map(getPropName).join(' i ');
         return {
           title: 'Pas 1: Caracterització dels Punts d\'Entrada (V i R)',
-          summary: 'A partir de la temperatura seca i la humitat relativa dels punts d\'aire exterior (V) i de retorn de la sala (R), se\'n calculen les propietats termodinàmiques fonamentals.',
-          latexFormula: `\\begin{aligned}
-P_w &= \\varphi \\cdot P_{ws}(T) \\\\[6pt]
-w &= 0.621945 \\cdot \\frac{P_w}{P - P_w} \\\\[6pt]
-h &= 1.006 \\cdot T + w \\cdot (2501 + 1.86 \\cdot T) \\\\[6pt]
-v &= (1 + 1.607858 \\cdot w) \\cdot \\frac{0.287042 \\cdot (T + 273.15)}{P}
-\\end{aligned}`,
-          latexSubstituted: `\\begin{aligned}
-\\text{Ventilació (V):} &\\quad T_v = ${fmt(V.t, 1)}\\text{ °C},\\; \\varphi_v = ${fmt(V.phi, 0)}\\% \\\\[2pt]
-&\\quad w_v = ${fmt(V.w_g_kg, 2)}\\text{ g/kg},\\; h_v = ${fmt(V.h, 2)}\\text{ kJ/kg},\\; v_v = ${fmt(V.v, 3)}\\text{ m}^3\\text{/kg} \\\\[8pt]
-\\text{Retorn (R):} &\\quad T_R = ${fmt(R.t, 1)}\\text{ °C},\\; \\varphi_R = ${fmt(R.phi, 0)}\\% \\\\[2pt]
-&\\quad w_R = ${fmt(R.w_g_kg, 2)}\\text{ g/kg},\\; h_R = ${fmt(R.h, 2)}\\text{ kJ/kg},\\; v_R = ${fmt(R.v, 3)}\\text{ m}^3\\text{/kg}
-\\end{aligned}`
+          summary: `A partir de les propietats especificades (${vSrcNames} per a Ventilació, i ${rSrcNames} per a Retorn), se'n calculen les propietats termodinàmiques fonamentals.`,
+          latexFormula: vInfo.formula,
+          latexSubstituted: `${vInfo.substituted}\\\\[8pt]\n${rInfo.substituted}`
         };
+      }
 
       case 2:
         return {
