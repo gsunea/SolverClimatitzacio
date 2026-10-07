@@ -745,6 +745,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Controls de la Barra d'Eines del Gràfic (Zoom, Capes i Exportació)
+  const btnZoomIn = document.getElementById('chart-btn-zoom-in');
+  const btnZoomOut = document.getElementById('chart-btn-zoom-out');
+  const btnZoomReset = document.getElementById('chart-btn-zoom-reset');
+  if (btnZoomIn) btnZoomIn.addEventListener('click', () => PsychroChart.zoomIn('psychro-container'));
+  if (btnZoomOut) btnZoomOut.addEventListener('click', () => PsychroChart.zoomOut('psychro-container'));
+  if (btnZoomReset) btnZoomReset.addEventListener('click', () => PsychroChart.resetZoom('psychro-container'));
+
+  const btnLayerComfort = document.getElementById('toggle-layer-comfort');
+  const btnLayerFcs = document.getElementById('toggle-layer-fcs');
+  const btnLayerEnthalpy = document.getElementById('toggle-layer-enthalpy');
+  const btnLayerVolume = document.getElementById('toggle-layer-volume');
+
+  function bindLayerToggle(btn, layerName) {
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const active = PsychroChart.toggleLayer(layerName, lastSolution, 7, 'psychro-container');
+      if (active) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+
+  bindLayerToggle(btnLayerComfort, 'comfort');
+  bindLayerToggle(btnLayerFcs, 'fcs');
+  bindLayerToggle(btnLayerEnthalpy, 'enthalpy');
+  bindLayerToggle(btnLayerVolume, 'volume');
+
+  const btnExportSvg = document.getElementById('btn-export-svg');
+  const btnExportPng = document.getElementById('btn-export-png');
+  if (btnExportSvg) btnExportSvg.addEventListener('click', () => PsychroChart.exportSvg('psychro-container'));
+  if (btnExportPng) btnExportPng.addEventListener('click', () => PsychroChart.exportPng('psychro-container'));
+
   // Inicialització amb l'exemple per defecte
   loadExample();
 });

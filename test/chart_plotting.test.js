@@ -173,4 +173,51 @@ describe('Psychrometric Chart Plotting (PsychroChart)', () => {
       assert.ok(xS < chart.MARGIN.left, `Point S x=${xS} is plotted to the left of the plot area`);
     });
   });
+
+  describe('Enhanced PsychroChart Features (Confort, FCS, Arrows, Interactivity)', () => {
+
+    test('RITE Comfort Zone and Wet Bulb marks are rendered', () => {
+      const svg = chart.generateSvg(sol, 7);
+      assert.ok(svg.includes('Zona Confort RITE'), 'Should display RITE comfort zone text');
+      assert.ok(svg.includes('fill="#10b981"'), 'Comfort zone should have emerald fill');
+      // Wet bulb saturation marks
+      assert.ok(svg.includes('15°') && svg.includes('20°'), 'Should display wet bulb ticks on saturation curve');
+    });
+
+    test('Carrier FCS Protractor is generated with correct angle', () => {
+      const svg = chart.generateSvg(sol, 7);
+      assert.ok(svg.includes('FCS Transportador'), 'Should render FCS protractor');
+      assert.ok(svg.includes('FCS = 0.870'), 'Should render computed FCS value in protractor');
+    });
+
+    test('Thermodynamic process lines include directional flow markers (arrows)', () => {
+      const svg = chart.generateSvg(sol, 7);
+      assert.ok(svg.includes('marker-end="url(#arrow-blue)"'), 'Cooling coil process M->I must have blue arrow');
+      assert.ok(svg.includes('marker-end="url(#arrow-red)"'), 'Room process I->R must have red arrow');
+      assert.ok(svg.includes('marker-end="url(#arrow-amber)"'), 'Mixing process V->M must have amber arrow');
+    });
+
+    test('Inverse coordinate mapping (fromX, fromY)', () => {
+      const T = 25.0;
+      const w = 12.0;
+      const x = chart.toX(T);
+      const y = chart.toY(w);
+
+      assert.ok(Math.abs(chart.fromX(x) - T) < 1e-4, 'fromX(toX(T)) should invert back to T');
+      assert.ok(Math.abs(chart.fromY(y) - w) < 1e-4, 'fromY(toY(w)) should invert back to w');
+    });
+
+    test('Layer state toggling allows hiding/showing comfort and FCS', () => {
+      // Toggle off comfort
+      chart.layerState.comfort = false;
+      const svgWithoutComfort = chart.generateSvg(sol, 7);
+      assert.ok(!svgWithoutComfort.includes('Zona Confort RITE'));
+
+      // Toggle back on
+      chart.layerState.comfort = true;
+      const svgWithComfort = chart.generateSvg(sol, 7);
+      assert.ok(svgWithComfort.includes('Zona Confort RITE'));
+    });
+  });
 });
+

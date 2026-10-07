@@ -567,18 +567,190 @@ body {
   color: var(--text-main);
 }
 
+.chart-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Barra d'Eines del Gràfic */
+.chart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  background-color: #f8fafc;
+  border: 1px solid var(--border-ui);
+  border-radius: var(--radius-xs);
+  padding: 4px 8px;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border-ui);
+  margin: 0 4px;
+}
+
+.btn-tool {
+  background-color: #ffffff;
+  border: 1px solid var(--border-ui);
+  color: var(--text-main);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-tool:hover {
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.btn-layer {
+  background-color: #ffffff;
+  border: 1px solid var(--border-ui);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-layer:hover {
+  border-color: #94a3b8;
+  color: var(--text-main);
+}
+
+.btn-layer.active {
+  background-color: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+#toggle-layer-comfort.active {
+  background-color: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+#toggle-layer-fcs.active {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* Barra d'Inspecció Psicromètrica en Temps Real */
+.chart-inspector-bar {
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-xs);
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.inspector-hint {
+  color: var(--text-muted);
+  font-style: italic;
+  font-family: var(--font-sans);
+}
+
+.inspect-item {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.inspect-item b {
+  color: #0284c7;
+}
+
+/* Tooltip Interactiu de Punts */
+.psychro-tooltip {
+  position: absolute;
+  z-index: 50;
+  background-color: rgba(255, 255, 255, 0.98);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  min-width: 180px;
+}
+
+.tt-header {
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 3px;
+}
+
+.tt-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #475569;
+}
+
+.tt-row b {
+  color: #0f172a;
+}
+
 #psychro-container,
-#debug-psychro-container {
+#debug-psychro-container,
+#fullscreen-chart-container {
   width: 100%;
   aspect-ratio: 4 / 3.05;
   background-color: #ffffff;
   border-radius: var(--radius-xs);
   overflow: hidden;
+  position: relative;
 }
 
 .psychro-svg {
   display: block;
   user-select: none;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-interactive-point:hover .point-marker {
+  r: 8.5;
+  stroke: #38bdf8;
+  stroke-width: 3.5;
+  transition: all 0.15s ease;
 }
 
 /* Quick KPI tiles */
