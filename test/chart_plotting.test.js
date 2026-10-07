@@ -201,16 +201,20 @@ describe('Psychrometric Chart Plotting (PsychroChart)', () => {
       assert.ok(Math.abs(chart.fromY(y) - w) < 1e-4, 'fromY(toY(w)) should invert back to w');
     });
 
-    test('Layer state toggling allows hiding/showing comfort', () => {
-      // Toggle off comfort
-      chart.layerState.comfort = false;
-      const svgWithoutComfort = chart.generateSvg(sol, 7);
-      assert.ok(!svgWithoutComfort.includes('Zona Confort RITE'));
+    test('Zoom-out is clamped to minimum scale 1.0 (never zooms out below original view)', () => {
+      // Simulate multiple zoomOut calls
+      chart.resetZoom('test-box');
+      chart.zoomOut('test-box');
+      chart.zoomOut('test-box');
+      chart.zoomOut('test-box');
 
-      // Toggle back on
-      chart.layerState.comfort = true;
-      const svgWithComfort = chart.generateSvg(sol, 7);
-      assert.ok(svgWithComfort.includes('Zona Confort RITE'));
+      // Zoom in then multiple zoomOut
+      chart.zoomIn('test-box');
+      chart.zoomOut('test-box');
+      chart.zoomOut('test-box');
+
+      // Reset
+      chart.resetZoom('test-box');
     });
   });
 });

@@ -494,32 +494,32 @@ const PsychroChart = (() => {
     const chLineY = crosshairG.querySelector('.ch-line-y');
     const chDot = crosshairG.querySelector('.ch-dot');
 
-    // Pan & Zoom amb transformació de viewBox
-    function updateTransform() {
-      const baseViewBox = `0 0 ${WIDTH} ${HEIGHT}`;
-      if (state.scale === 1.0 && state.tx === 0 && state.ty === 0) {
-        svgEl.setAttribute('viewBox', baseViewBox);
-        return;
-      }
-      // Re-centrem la vista segons scale i transladem
-      const w = WIDTH / state.scale;
-      const h = HEIGHT / state.scale;
-      const vx = MARGIN.left + (PLOT_W / 2) - (w / 2) - (state.tx / state.scale);
-      const vy = MARGIN.top + (PLOT_H / 2) - (h / 2) - (state.ty / state.scale);
-      svgEl.setAttribute('viewBox', `${vx.toFixed(1)} ${vy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+    // Pan & Zoom amb transformació de viewBox i límits estrictes
+    function applyLocalViewBox() {
+      applyViewBox(containerId);
     }
+
+    applyLocalViewBox();
 
     // Gestió d'esdeveniments del ratolí
     svgEl.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
-      const newScale = Math.min(Math.max(state.scale * zoomFactor, 0.8), 6.0);
+      let newScale = state.scale * zoomFactor;
+      if (newScale <= 1.001) {
+        newScale = 1.0;
+        state.tx = 0;
+        state.ty = 0;
+      } else {
+        newScale = Math.min(newScale, 6.0);
+      }
       state.scale = newScale;
-      updateTransform();
+      applyLocalViewBox();
     }, { passive: false });
 
     svgEl.addEventListener('mousedown', (e) => {
-      if (e.button === 0) {
+      // Només es pot arrossegar si hi ha zoom actiu (scale > 1.0)
+      if (e.button === 0 && state.scale > 1.001) {
         state.isDragging = true;
         state.startX = e.clientX - state.tx;
         state.startY = e.clientY - state.ty;
@@ -530,23 +530,20 @@ const PsychroChart = (() => {
     window.addEventListener('mouseup', () => {
       if (state.isDragging) {
         state.isDragging = false;
-        svgEl.style.cursor = 'default';
+        applyLocalViewBox();
       }
     });
 
     svgEl.addEventListener('dblclick', () => {
-      state.scale = 1.0;
-      state.tx = 0;
-      state.ty = 0;
-      updateTransform();
+      resetZoom(containerId);
     });
 
     // Inspector psicromètric en temps real (mousemove)
     svgEl.addEventListener('mousemove', (e) => {
-      if (state.isDragging) {
+      if (state.isDragging && state.scale > 1.001) {
         state.tx = e.clientX - state.startX;
         state.ty = e.clientY - state.startY;
-        updateTransform();
+        applyLocalViewBox();
         return;
       }
 
@@ -711,38 +708,61 @@ const PsychroChart = (() => {
     defaultContainerId = id;
   }
 
+  /**
+   * Aplica la transformació viewBox garantint que scale >= 1.0 i que la vista
+   * no es desplaci mai fora dels límits de la carta psicromètrica.
+   */
+  function applyViewBox(containerId = null) {
+    const id = containerId || defaultContainerId;
+    const state = getViewState(id);
+    const container = typeof document !== 'undefined' ? document.getElementById(id) : null;
+    if (!container) return;
+    const svgEl = container.querySelector('svg');
+    if (!svgEl) return;
+
+    // Si el zoom és 1.0 (o inferior), bloqueja exactament a la posició original
+    if (state.scale <= 1.001) {
+      state.scale = 1.0;
+      state.tx = 0;
+      state.ty = 0;
+      svgEl.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+      svgEl.style.cursor = 'default';
+      return;
+    }
+
+    svgEl.style.cursor = state.isDragging ? 'grabbing' : 'grab';
+
+    // Acota el desplaçament perquè mai surti del requadre
+    const maxTx = ((state.scale - 1.0) * WIDTH) / 2;
+    const maxTy = ((state.scale - 1.0) * HEIGHT) / 2;
+    state.tx = Math.max(-maxTx, Math.min(maxTx, state.tx));
+    state.ty = Math.max(-maxTy, Math.min(maxTy, state.ty));
+
+    const w = WIDTH / state.scale;
+    const h = HEIGHT / state.scale;
+    const vx = (WIDTH - w) / 2 - (state.tx / state.scale);
+    const vy = (HEIGHT - h) / 2 - (state.ty / state.scale);
+    svgEl.setAttribute('viewBox', `${vx.toFixed(1)} ${vy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+  }
+
   function zoomIn(containerId = null) {
     const id = containerId || defaultContainerId;
     const state = getViewState(id);
     state.scale = Math.min(state.scale * 1.25, 6.0);
-    const container = typeof document !== 'undefined' ? document.getElementById(id) : null;
-    if (container) {
-      const svgEl = container.querySelector('svg');
-      if (svgEl) {
-        const w = WIDTH / state.scale;
-        const h = HEIGHT / state.scale;
-        const vx = MARGIN.left + (PLOT_W / 2) - (w / 2) - (state.tx / state.scale);
-        const vy = MARGIN.top + (PLOT_H / 2) - (h / 2) - (state.ty / state.scale);
-        svgEl.setAttribute('viewBox', `${vx.toFixed(1)} ${vy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
-      }
-    }
+    applyViewBox(id);
   }
 
   function zoomOut(containerId = null) {
     const id = containerId || defaultContainerId;
     const state = getViewState(id);
-    state.scale = Math.max(state.scale * 0.8, 0.8);
-    const container = typeof document !== 'undefined' ? document.getElementById(id) : null;
-    if (container) {
-      const svgEl = container.querySelector('svg');
-      if (svgEl) {
-        const w = WIDTH / state.scale;
-        const h = HEIGHT / state.scale;
-        const vx = MARGIN.left + (PLOT_W / 2) - (w / 2) - (state.tx / state.scale);
-        const vy = MARGIN.top + (PLOT_H / 2) - (h / 2) - (state.ty / state.scale);
-        svgEl.setAttribute('viewBox', `${vx.toFixed(1)} ${vy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
-      }
+    let newScale = state.scale * 0.8;
+    if (newScale <= 1.001) {
+      newScale = 1.0;
+      state.tx = 0;
+      state.ty = 0;
     }
+    state.scale = newScale;
+    applyViewBox(id);
   }
 
   function resetZoom(containerId = null) {
@@ -751,13 +771,7 @@ const PsychroChart = (() => {
     state.scale = 1.0;
     state.tx = 0;
     state.ty = 0;
-    const container = typeof document !== 'undefined' ? document.getElementById(id) : null;
-    if (container) {
-      const svgEl = container.querySelector('svg');
-      if (svgEl) {
-        svgEl.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
-      }
-    }
+    applyViewBox(id);
   }
 
   function toggleLayer(layerName, sol = null, maxStep = 7, targetId = null) {
