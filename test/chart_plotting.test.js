@@ -184,12 +184,6 @@ describe('Psychrometric Chart Plotting (PsychroChart)', () => {
       assert.ok(svg.includes('15°') && svg.includes('20°'), 'Should display wet bulb ticks on saturation curve');
     });
 
-    test('Carrier FCS Protractor is generated with correct angle', () => {
-      const svg = chart.generateSvg(sol, 7);
-      assert.ok(svg.includes('FCS Transportador'), 'Should render FCS protractor');
-      assert.ok(svg.includes('FCS = 0.870'), 'Should render computed FCS value in protractor');
-    });
-
     test('Thermodynamic process lines include directional flow markers (arrows)', () => {
       const svg = chart.generateSvg(sol, 7);
       assert.ok(svg.includes('marker-end="url(#arrow-blue)"'), 'Cooling coil process M->I must have blue arrow');
@@ -207,7 +201,7 @@ describe('Psychrometric Chart Plotting (PsychroChart)', () => {
       assert.ok(Math.abs(chart.fromY(y) - w) < 1e-4, 'fromY(toY(w)) should invert back to w');
     });
 
-    test('Layer state toggling allows hiding/showing comfort and FCS', () => {
+    test('Layer state toggling allows hiding/showing comfort', () => {
       // Toggle off comfort
       chart.layerState.comfort = false;
       const svgWithoutComfort = chart.generateSvg(sol, 7);

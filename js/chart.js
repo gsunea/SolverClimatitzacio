@@ -286,54 +286,6 @@ const PsychroChart = (() => {
   }
 
   /**
-   * Genera el quadrant del Transportador de Factor de Calor Sensible (FCS)
-   */
-  function buildProtractorSvg(sol) {
-    if (!layerState.fcs) return '';
-    const cx = MARGIN.left + 50;
-    const cy = MARGIN.top + 50;
-    const r = 38;
-
-    let fcsVal = null;
-    if (sol && sol.powers && sol.powers.FCS_i !== undefined && sol.powers.FCS_i !== null) {
-      fcsVal = Number(sol.powers.FCS_i);
-    } else if (sol && sol.powers && sol.powers.fcs_i !== undefined && sol.powers.fcs_i !== null) {
-      fcsVal = Number(sol.powers.fcs_i);
-    }
-
-    let svg = `<g class="chart-protractor" transform="translate(0, 0)">`;
-    // Fons del transportador
-    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffffff" fill-opacity="0.92" stroke="#94a3b8" stroke-width="1"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="2" fill="#475569"/>`;
-    svg += `<text x="${cx}" y="${cy - r - 4}" font-size="8.5" font-weight="700" fill="#475569" text-anchor="middle" font-family="var(--font-sans), sans-serif">FCS Transportador</text>`;
-
-    // Marques de FCS típiques (1.0 horitzontal a la dreta, 0.4 cap a dalt-esquerra)
-    const marks = [0.5, 0.7, 0.85, 1.0];
-    marks.forEach(m => {
-      // Angle en radians: FCS=1.0 és angle 0 (horitzontal), FCS més baix té més component latent (angle cap amunt)
-      const angleDeg = (1.0 - m) * 90;
-      const rad = (angleDeg * Math.PI) / 180;
-      const mx = cx + r * Math.cos(rad);
-      const my = cy - r * Math.sin(rad);
-      svg += `<line x1="${cx}" y1="${cy}" x2="${mx}" y2="${my}" stroke="#cbd5e1" stroke-width="0.7"/>`;
-      svg += `<text x="${mx + (m === 1.0 ? 3 : 2)}" y="${my - 2}" font-size="7.5" fill="#64748b" text-anchor="${m === 1.0 ? 'start' : 'middle'}" font-family="var(--font-mono), monospace">${m.toFixed(1)}</text>`;
-    });
-
-    // Agulla de la solució actual
-    if (fcsVal !== null && !isNaN(fcsVal) && fcsVal >= 0 && fcsVal <= 1.0) {
-      const curAngleDeg = Math.min(90, Math.max(0, (1.0 - fcsVal) * 90));
-      const curRad = (curAngleDeg * Math.PI) / 180;
-      const ax = cx + (r - 2) * Math.cos(curRad);
-      const ay = cy - (r - 2) * Math.sin(curRad);
-      svg += `<line x1="${cx}" y1="${cy}" x2="${ax}" y2="${ay}" stroke="#ef4444" stroke-width="2"/>`;
-      svg += `<circle cx="${ax}" cy="${ay}" r="2" fill="#ef4444"/>`;
-      svg += `<text x="${cx}" y="${cy + r + 11}" font-size="8.5" font-weight="700" fill="#ef4444" text-anchor="middle" font-family="var(--font-mono), monospace">FCS = ${fcsVal.toFixed(3)}</text>`;
-    }
-    svg += `</g>`;
-    return svg;
-  }
-
-  /**
    * Genera el codi SVG de la carta psicromètrica.
    * @param {Object} sol - Solució calculada
    * @param {Number} maxStep - Pas màxim a dibuixar (1..7)
@@ -345,9 +297,6 @@ const PsychroChart = (() => {
 
     const P = (sol && sol.powers && sol.powers.P_atm_Pa) ? sol.powers.P_atm_Pa : 101325;
     let svg = buildBaseSvg(P, lib, options);
-
-    // Afegir transportador de FCS
-    svg += buildProtractorSvg(sol);
 
     if (sol && sol.points) {
       const pts = sol.points;
@@ -679,7 +628,7 @@ const PsychroChart = (() => {
       if (tooltip) tooltip.style.display = 'none';
       const inspectBar = document.getElementById('chart-inspector-bar');
       if (inspectBar) {
-        inspectBar.innerHTML = `<span class="inspector-hint">Mou el cursor pel gràfic per mesurar propietats en temps real</span>`;
+        inspectBar.innerHTML = '';
       }
     });
 

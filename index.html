@@ -305,6 +305,11 @@
               <span class="chart-subtitle">Carta Carrier / ASHRAE (P = 101,325 kPa)</span>
             </div>
             <div class="chart-header-actions">
+              <div class="zoom-btn-group">
+                <button type="button" id="chart-btn-zoom-in" class="btn-tool" title="Apropar (Zoom In)">＋</button>
+                <button type="button" id="chart-btn-zoom-out" class="btn-tool" title="Allunyar (Zoom Out)">－</button>
+                <button type="button" id="chart-btn-zoom-reset" class="btn-tool" title="Restablir vista (100%)">⟲</button>
+              </div>
               <button type="button" id="btn-export-svg" class="btn-icon-text" title="Descarregar diagrama vectorial (SVG)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 SVG
@@ -320,26 +325,8 @@
             </div>
           </div>
 
-          <!-- Barra d'eines del diagrama: Zoom i Capes -->
-          <div class="chart-toolbar">
-            <div class="toolbar-group">
-              <button type="button" id="chart-btn-zoom-in" class="btn-tool" title="Apropar (Zoom In)">＋</button>
-              <button type="button" id="chart-btn-zoom-out" class="btn-tool" title="Allunyar (Zoom Out)">－</button>
-              <button type="button" id="chart-btn-zoom-reset" class="btn-tool" title="Restablir vista (100%)">⟲</button>
-            </div>
-            <div class="toolbar-divider"></div>
-            <div class="toolbar-group">
-              <button type="button" id="toggle-layer-comfort" class="btn-layer active" title="Zona de Confort RITE / ASHRAE 55">🌿 Confort</button>
-              <button type="button" id="toggle-layer-fcs" class="btn-layer active" title="Transportador de Factor de Calor Sensible">📐 Semicercle FCS</button>
-              <button type="button" id="toggle-layer-enthalpy" class="btn-layer active" title="Línies d'entalpia constant">h</button>
-              <button type="button" id="toggle-layer-volume" class="btn-layer active" title="Línies de volum específic">v</button>
-            </div>
-          </div>
-
           <!-- Barra d'inspecció psicromètrica viva -->
-          <div id="chart-inspector-bar" class="chart-inspector-bar">
-            <span class="inspector-hint">Mou el cursor pel gràfic per mesurar propietats en temps real</span>
-          </div>
+          <div id="chart-inspector-bar" class="chart-inspector-bar"></div>
           
           <div id="psychro-container"></div>
         </div>

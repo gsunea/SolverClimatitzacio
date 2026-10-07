@@ -573,30 +573,14 @@ body {
   gap: 6px;
 }
 
-/* Barra d'Eines del Gràfic */
-.chart-toolbar {
+.zoom-btn-group {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px;
-  background-color: #f8fafc;
-  border: 1px solid var(--border-ui);
+  gap: 2px;
+  background-color: var(--bg-subtle);
+  padding: 2px;
   border-radius: var(--radius-xs);
-  padding: 4px 8px;
-}
-
-.toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 18px;
-  background-color: var(--border-ui);
-  margin: 0 4px;
+  border: 1px solid var(--border-ui);
 }
 
 .btn-tool {
@@ -609,7 +593,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.12s ease;
@@ -618,41 +602,6 @@ body {
 .btn-tool:hover {
   background-color: #e2e8f0;
   border-color: #cbd5e1;
-}
-
-.btn-layer {
-  background-color: #ffffff;
-  border: 1px solid var(--border-ui);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 3px 7px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.btn-layer:hover {
-  border-color: #94a3b8;
-  color: var(--text-main);
-}
-
-.btn-layer.active {
-  background-color: #e0f2fe;
-  border-color: #7dd3fc;
-  color: #0369a1;
-}
-
-#toggle-layer-comfort.active {
-  background-color: #dcfce7;
-  border-color: #86efac;
-  color: #15803d;
-}
-
-#toggle-layer-fcs.active {
-  background-color: #fee2e2;
-  border-color: #fca5a5;
-  color: #b91c1c;
 }
 
 /* Barra d'Inspecció Psicromètrica en Temps Real */
