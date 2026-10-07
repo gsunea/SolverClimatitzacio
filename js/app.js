@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastSolution = null;
 
   // Botons i barra d'estat
-  const btnSolve = document.getElementById('btn-solve');
   const btnExample = document.getElementById('btn-example');
   const btnClear = document.getElementById('btn-clear');
   const statusPill = document.getElementById('status-pill');
@@ -210,6 +209,22 @@ document.addEventListener('DOMContentLoaded', () => {
   /**
    * Configura els listeners per a una fila de punt (Ventilació o Retorn)
    */
+  const OUTPUT_IDS = [
+    'out-m-t', 'out-m-phi', 'out-m-w', 'out-m-v', 'out-m-h', 'out-m-tr', 'out-m-th',
+    'out-i-v', 'out-i-h', 'out-i-tr', 'out-i-th',
+    'out-s-w', 'out-s-v', 'out-s-h', 'out-s-tr', 'out-s-th',
+    'out-fbp', 'out-qsv', 'out-qlv', 'out-qtot', 'out-fcstot',
+    'out-qr', 'out-qm', 'out-mcond',
+    'kpi-quick-qbat', 'kpi-quick-fbp', 'kpi-quick-mcond', 'kpi-quick-qi'
+  ];
+
+  function clearOutputs() {
+    lastSolution = null;
+    OUTPUT_IDS.forEach(id => setCell(id, '—'));
+    PsychroChart.render(null, 7, 'psychro-container');
+    PsychroChart.render(null, 1, 'debug-psychro-container');
+  }
+
   function setupPointRow(ptKey, clearBtnId) {
     const state = pointState[ptKey];
     const clearBtn = document.getElementById(clearBtnId);
@@ -259,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
         updatePointBadge(ptKey);
+        clearOutputs();
         checkDataStatus();
       });
     }
@@ -276,6 +292,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (val !== null) {
         pointState.i.activeProp = 'phi';
         pointState.i.userValue = val;
+        pointState.flows.manualQi = null;
+        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
         cellIPhi.classList.add('is-source'); cellIPhi.classList.remove('is-calc');
         cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
         cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
@@ -290,6 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (val !== null) {
         pointState.i.activeProp = 't';
         pointState.i.userValue = val;
+        pointState.flows.manualQi = null;
+        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
         cellIT.classList.add('is-source'); cellIT.classList.remove('is-calc');
         cellIPhi.classList.remove('is-source'); cellIPhi.classList.add('is-calc');
         cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
@@ -304,6 +324,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (val !== null) {
         pointState.i.activeProp = 'w';
         pointState.i.userValue = val;
+        pointState.flows.manualQi = null;
+        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
         cellIW.classList.add('is-source'); cellIW.classList.remove('is-calc');
         cellIPhi.classList.remove('is-source'); cellIPhi.classList.add('is-calc');
         cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
@@ -397,10 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
     inQi.addEventListener('input', () => {
       const val = parseNum(inQi.value);
       pointState.flows.manualQi = val;
-      if (val !== null) {
+      const badgeI = document.getElementById('badge-i-cond');
+      if (val !== null && val > 0) {
         inQi.classList.add('is-source'); inQi.classList.remove('is-calc');
+        pointState.i.activeProp = 'qi';
+        cellIPhi.classList.remove('is-source'); cellIPhi.classList.add('is-calc');
+        cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
+        cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
+        if (badgeI) badgeI.textContent = 'Q_I';
       } else {
         inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
+        pointState.i.activeProp = 'phi';
+        cellIPhi.classList.add('is-source'); cellIPhi.classList.remove('is-calc');
+        if (badgeI) badgeI.textContent = 'φ_I';
       }
       checkDataStatus();
       if (checkDataStatus(false)) solveSystem();
@@ -431,7 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isReady) {
         statusPill.className = 'status-badge ready';
         statusText.textContent = 'Dades suficients per calcular';
-        btnSolve.style.opacity = '1';
       } else {
         statusPill.className = 'status-badge missing';
         let msg = 'Falten dades de partida:';
@@ -440,7 +470,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hasQsi || !hasQli) msg += ' potències interiors q_si/q_li;';
         if (!hasQv) msg += ' cabal de ventilació Q_v;';
         statusText.textContent = msg.replace(/;$/, '');
-        btnSolve.style.opacity = '0.85';
       }
     }
 
@@ -473,8 +502,12 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (pointState.i.activeProp === 't' && pointState.i.userValue !== null) {
         inputs.target_TI = pointState.i.userValue;
       } else if (pointState.i.activeProp === 'w' && pointState.i.userValue !== null) {
-        const slope = inputs.FCS_i > 0 ? ((1 - inputs.FCS_i) / inputs.FCS_i) * (1.006 / 2501) : 0;
-        if (slope > 0) {
+        const q_tot = (pointState.powers.q_si || 0) + (pointState.powers.q_li || 0);
+        const fcs = (inputs.FCS_i !== null && inputs.FCS_i > 0)
+          ? inputs.FCS_i
+          : (pointState.powers.fcs_i || (q_tot > 0 ? pointState.powers.q_si / q_tot : 1.0));
+        const slope = (fcs > 0 && fcs < 1) ? ((1 - fcs) / fcs) * (1.006 / 2501) : 0;
+        if (slope > 0 && pointState.r.solved) {
           inputs.target_TI = pointState.r.solved.t - (pointState.r.solved.w - pointState.i.userValue / 1000.0) / slope;
         }
       } else {
@@ -548,8 +581,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  btnSolve.addEventListener('click', solveSystem);
-
   /**
    * Carrega el cas d'exemple canònic de classe
    */
@@ -611,6 +642,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pointState.s.manualTs = null;
     pointState.flows.manualQi = null;
+    pointState.powers.q_si = null;
+    pointState.powers.q_li = null;
+    pointState.powers.fcs_i = null;
+    pointState.powers.lastEdited = 'qli';
+    pointState.flows.q_v = null;
+    pointState.fr_infiltr = 0.0;
+    pointState.i.activeProp = 'phi';
+    pointState.i.userValue = 90.0;
 
     PROPS.forEach(p => {
       const inV = document.getElementById(`cell-v-${p}`);
@@ -622,7 +661,17 @@ document.addEventListener('DOMContentLoaded', () => {
     cellIT.value = '';
     cellIPhi.value = '90%';
     cellIW.value = '';
-    if (cellST) cellST.value = '';
+    cellIPhi.classList.remove('is-calc'); cellIPhi.classList.add('is-source');
+    cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
+    cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
+    const badgeI = document.getElementById('badge-i-cond');
+    if (badgeI) badgeI.textContent = 'φ_I';
+
+    if (cellST) {
+      cellST.value = '';
+      cellST.classList.remove('is-source');
+      cellST.classList.add('is-calc');
+    }
 
     inQsi.value = '';
     inQli.value = '';
@@ -631,23 +680,16 @@ document.addEventListener('DOMContentLoaded', () => {
     inQi.value = '';
     inInfil.value = '0%';
 
-    const outputIds = [
-      'out-m-t', 'out-m-phi', 'out-m-w', 'out-m-v', 'out-m-h', 'out-m-tr', 'out-m-th',
-      'out-i-v', 'out-i-h', 'out-i-tr', 'out-i-th',
-      'out-s-w', 'out-s-v', 'out-s-h', 'out-s-tr', 'out-s-th',
-      'out-fbp', 'out-qsv', 'out-qlv', 'out-qtot', 'out-fcstot',
-      'out-qr', 'out-qm', 'out-mcond',
-      'kpi-quick-qbat', 'kpi-quick-fbp', 'kpi-quick-mcond', 'kpi-quick-qi'
-    ];
-    outputIds.forEach(id => setCell(id, '—'));
+    inQsi.classList.remove('is-calc'); inQsi.classList.add('is-source');
+    inQli.classList.remove('is-calc'); inQli.classList.add('is-source');
+    inFcsi.classList.remove('is-source'); inFcsi.classList.add('is-calc');
+    inQv.classList.remove('is-calc'); inQv.classList.add('is-source');
+    inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
 
+    clearOutputs();
     updatePointBadge('v');
     updatePointBadge('r');
-    lastSolution = null;
-
     checkDataStatus();
-    PsychroChart.render(null, 7, 'psychro-container');
-    PsychroChart.render(null, 1, 'debug-psychro-container');
   }
 
   btnClear.addEventListener('click', clearAll);
@@ -683,7 +725,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function openFullscreenChart() {
     if (!modalFullscreen) return;
     modalFullscreen.style.display = 'flex';
-    PsychroChart.render(lastSolution, 7, 'fullscreen-chart-container');
+    const isDebugActive = tabDebugger && tabDebugger.classList.contains('active');
+    const step = isDebugActive ? StepDebugger.getCurrentStep() : 7;
+    PsychroChart.render(lastSolution, step, 'fullscreen-chart-container');
   }
 
   function closeFullscreenChart() {

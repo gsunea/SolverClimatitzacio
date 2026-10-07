@@ -167,21 +167,40 @@ const PsychroChart = (() => {
     return svg;
   }
 
+  function getPsychroLib() {
+    if (typeof window !== 'undefined' && window.psychrolib) {
+      return window.psychrolib;
+    }
+    if (typeof psychrolib !== 'undefined') {
+      return psychrolib;
+    }
+    if (typeof require !== 'undefined') {
+      try {
+        const pl = require('./psychrolib.js');
+        pl.SetUnitSystem(pl.SI);
+        return pl;
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  function isPointInBounds(pt) {
+    if (!pt) return false;
+    const t = Number(pt.t);
+    const w = Number(pt.w_g_kg !== undefined ? pt.w_g_kg : (pt.w ? pt.w * 1000 : NaN));
+    return (t >= T_MIN && t <= T_MAX && w >= W_MIN && w <= W_MAX);
+  }
+
   /**
-   * Renderitza el diagrama.
+   * Genera el codi SVG de la carta psicromètrica.
    * @param {Object} sol - Solució calculada
-   * @param {Number} maxStep - Pas màxim a dibuixar (1..7, per defecte 7 = cicle complet)
-   * @param {String} targetId - ID del contenidor HTML (per defecte defaultContainerId)
+   * @param {Number} maxStep - Pas màxim a dibuixar (1..7)
    */
-  function render(sol, maxStep = 7, targetId = null) {
-    const id = targetId || defaultContainerId;
-    const container = document.getElementById(id);
-    if (!container) return;
+  function generateSvg(sol, maxStep = 7) {
+    const lib = getPsychroLib();
+    if (!lib) return '';
 
-    const lib = window.psychrolib;
-    if (!lib) return;
-
-    const P = sol ? sol.powers.P_atm_Pa : 101325;
+    const P = (sol && sol.powers && sol.powers.P_atm_Pa) ? sol.powers.P_atm_Pa : 101325;
     let svg = buildBaseSvg(P, lib);
 
     if (sol && sol.points) {
@@ -193,39 +212,40 @@ const PsychroChart = (() => {
       const S = pts.S;
 
       // Pas 4+: Recta de mescla V - R
-      if (maxStep >= 4) {
+      if (maxStep >= 4 && V && R) {
         svg += `<line x1="${toX(V.t)}" y1="${toY(V.w_g_kg)}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4" clip-path="url(#chart-clip)"/>`;
       }
 
       // Pas 6+: Procés de bateria M - I i prolongació a S
-      if (maxStep >= 6) {
+      if (maxStep >= 6 && M && I && S) {
         svg += `<line x1="${toX(M.t)}" y1="${toY(M.w_g_kg)}" x2="${toX(I.t)}" y2="${toY(I.w_g_kg)}" stroke="#0284c7" stroke-width="3" clip-path="url(#chart-clip)"/>`;
         svg += `<line x1="${toX(I.t)}" y1="${toY(I.w_g_kg)}" x2="${toX(S.t)}" y2="${toY(S.w_g_kg)}" stroke="#38bdf8" stroke-width="2" stroke-dasharray="3,3" clip-path="url(#chart-clip)"/>`;
       }
 
       // Pas 2+: Maniobra de sala I - R (o recta que passa per R)
-      if (maxStep >= 2) {
-        const xStart = (maxStep >= 3) ? toX(I.t) : toX(R.t - 15);
-        const yStart = (maxStep >= 3) ? toY(I.w_g_kg) : toY(R.w_g_kg - sol.slopeRoom * 15 * 1000);
+      if (maxStep >= 2 && R) {
+        const xStart = (maxStep >= 3 && I) ? toX(I.t) : toX(R.t - 15);
+        const yStart = (maxStep >= 3 && I) ? toY(I.w_g_kg) : toY(R.w_g_kg - (sol.slopeRoom || 0) * 15 * 1000);
         svg += `<line x1="${xStart}" y1="${yStart}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#ef4444" stroke-width="${maxStep >= 3 ? 3 : 2}" stroke-dasharray="${maxStep >= 3 ? 'none' : '4,3'}" clip-path="url(#chart-clip)"/>`;
       }
 
       // Llista de punts segons el pas
       const pointList = [];
       if (maxStep >= 1) {
-        pointList.push({ pt: V, name: 'V (Ventilació)', color: '#f59e0b', dx: 10, dy: -6 });
-        pointList.push({ pt: R, name: 'R (Retorn)', color: '#10b981', dx: 10, dy: 14 });
+        if (V) pointList.push({ pt: V, name: 'V (Ventilació)', color: '#f59e0b', dx: 10, dy: -6 });
+        if (R) pointList.push({ pt: R, name: 'R (Retorn)', color: '#10b981', dx: 10, dy: 14 });
       }
-      if (maxStep >= 3) {
+      if (maxStep >= 3 && I) {
         pointList.push({ pt: I, name: 'I (Impulsió)', color: '#0ea5e9', dx: -10, dy: 14, anchor: 'end' });
       }
-      if (maxStep >= 5) {
+      if (maxStep >= 5 && M) {
         pointList.push({ pt: M, name: 'M (Mescla)', color: '#8b5cf6', dx: -12, dy: -12, anchor: 'end' });
       }
-      if (maxStep >= 6) {
+      if (maxStep >= 6 && S) {
         pointList.push({ pt: S, name: 'S (Superfície)', color: '#06b6d4', dx: -12, dy: -8, anchor: 'end' });
       }
 
+      svg += `<g clip-path="url(#chart-clip)">`;
       pointList.forEach(item => {
         const x = toX(item.pt.t);
         const y = toY(item.pt.w_g_kg);
@@ -234,6 +254,16 @@ const PsychroChart = (() => {
         svg += `<circle cx="${x}" cy="${y}" r="6.5" fill="${item.color}" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)"/>`;
         svg += `<text x="${x + item.dx}" y="${y + item.dy}" font-size="11" font-weight="700" fill="${item.color}" text-anchor="${anchor}" font-family="var(--font-mono), monospace">${item.name.split(' ')[0]}</text>`;
       });
+      svg += `</g>`;
+
+      const outOfBounds = pointList.filter(item => !isPointInBounds(item.pt));
+      if (outOfBounds.length > 0) {
+        const names = outOfBounds.map(item => item.name.split(' ')[0]).join(', ');
+        svg += `<g transform="translate(${MARGIN.left + PLOT_W - 200}, ${MARGIN.top + 15})">
+          <rect x="0" y="0" width="195" height="26" fill="#fef2f2" stroke="#fca5a5" rx="4" />
+          <text x="8" y="17" font-size="10.5" fill="#b91c1c" font-weight="600" font-family="var(--font-sans), sans-serif">⚠️ Punts fora d'escala: ${names}</text>
+        </g>`;
+      }
 
       // Llegenda compacta
       if (pointList.length > 0) {
@@ -255,7 +285,23 @@ const PsychroChart = (() => {
     }
 
     svg += `</svg>`;
-    container.innerHTML = svg;
+    return svg;
+  }
+
+  /**
+   * Renderitza el diagrama.
+   * @param {Object} sol - Solució calculada
+   * @param {Number} maxStep - Pas màxim a dibuixar (1..7, per defecte 7 = cicle complet)
+   * @param {String} targetId - ID del contenidor HTML (per defecte defaultContainerId)
+   */
+  function render(sol, maxStep = 7, targetId = null) {
+    const id = targetId || defaultContainerId;
+    const container = typeof document !== 'undefined' ? document.getElementById(id) : null;
+    const svg = generateSvg(sol, maxStep);
+    if (container && svg) {
+      container.innerHTML = svg;
+    }
+    return svg;
   }
 
   function setContainerId(id) {
@@ -264,7 +310,20 @@ const PsychroChart = (() => {
 
   return {
     render,
-    setContainerId
+    generateSvg,
+    isPointInBounds,
+    toX,
+    toY,
+    setContainerId,
+    T_MIN,
+    T_MAX,
+    W_MIN,
+    W_MAX,
+    WIDTH,
+    HEIGHT,
+    MARGIN,
+    PLOT_W,
+    PLOT_H
   };
 })();
 

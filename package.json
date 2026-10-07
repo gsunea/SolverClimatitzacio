@@ -1,0 +1,16 @@
+{
+  "name": "clima-solver-estiu",
+  "version": "1.0.0",
+  "description": "Solver de Climatitzadors en Estiu (ETSEIB - MUEI)",
+  "main": "js/app.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "hvac",
+    "psychrometrics",
+    "thermodynamics"
+  ],
+  "author": "",
+  "license": "MIT"
+}

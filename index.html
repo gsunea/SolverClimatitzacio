@@ -66,9 +66,9 @@
                   <th>H relativa<br><small>%</small></th>
                   <th>H abs<br><small>g/kg a.s.</small></th>
                   <th>V esp.<br><small>m³/kg a.s.</small></th>
-                  <th>Entalpía<br><small>kJ/kg a.s.</small></th>
-                  <th>T de rocío<br><small>ºC</small></th>
-                  <th>T húmeda<br><small>ºC</small></th>
+                  <th>Entalpia<br><small>kJ/kg a.s.</small></th>
+                  <th>T de rosada<br><small>ºC</small></th>
+                  <th>T humida<br><small>ºC</small></th>
                 </tr>
               </thead>
               <tbody>
@@ -108,7 +108,7 @@
                 <tr>
                   <td class="text-left point-header-cell">
                     <div class="point-badge-row">
-                      <span class="point-name">Retorno</span>
+                      <span class="point-name">Retorn</span>
                       <span id="badge-r-props" class="prop-counter-pill ready" title="Propietats que defineixen Retorn">2/2</span>
                       <button type="button" class="btn-clear-row" id="btn-clear-r" title="Netejar fila de Retorn">×</button>
                     </div>
@@ -140,7 +140,7 @@
                 <tr>
                   <td class="text-left point-header-cell">
                     <div class="point-badge-row">
-                      <span class="point-name">Mezcla</span>
+                      <span class="point-name">Mescla</span>
                       <span class="prop-counter-pill ready" title="Calculat automàticament per balanç">auto</span>
                     </div>
                   </td>
@@ -241,10 +241,10 @@
               <table class="data-table">
                 <thead>
                   <tr class="th-gray">
-                    <th>Q_ventilación<br><small>m³/h</small></th>
-                    <th>Q_impulsión<br><small>m³/h</small></th>
-                    <th>Q_retorno<br><small>m³/h</small></th>
-                    <th>Q_mezcla<br><small>m³/h</small></th>
+                    <th>Q_ventilació<br><small>m³/h</small></th>
+                    <th>Q_impulsió<br><small>m³/h</small></th>
+                    <th>Q_retorn<br><small>m³/h</small></th>
+                    <th>Q_mescla<br><small>m³/h</small></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -283,16 +283,12 @@
 
           </div>
 
-          <!-- Barra d'Estat i Botó de Solucionar -->
+          <!-- Barra d'Estat -->
           <div class="action-status-bar">
             <div id="status-pill" class="status-badge missing">
               <span class="status-indicator-dot"></span>
               <span id="status-text">Falten dades de partida</span>
             </div>
-            <button type="button" id="btn-solve" class="btn-primary-action">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              Solucionar
-            </button>
           </div>
 
         </div>

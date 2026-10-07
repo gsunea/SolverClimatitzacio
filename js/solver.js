@@ -77,7 +77,7 @@ const ClimaSolver = (() => {
     if (th !== null) propList.push('th');
     if (v !== null) propList.push('v');
 
-    if (hasW && hasTr && propList.length === 2) {
+    if (hasW && hasTr && (t === null && phi === null && h === null && th === null && v === null)) {
       throw new Error('La humitat absoluta i la temperatura de rocío són dependents. Cal una altra propietat.');
     }
 
@@ -357,13 +357,15 @@ const ClimaSolver = (() => {
     let pointI = null;
     const mode = inputs.mode || 'phi_I';
 
+    const minT = slopeRoom > 0 ? Math.max(0.0, pointR.t - pointR.w / slopeRoom) : 0.0;
+
     if (inputs.target_TI !== undefined && inputs.target_TI !== null && inputs.target_TI !== '') {
       const TI = parseFloat(inputs.target_TI);
       const wI = getWOnRoomLine(TI);
       pointI = solvePointFromProperties({ t: TI, w: wI }, P, lib);
     } else if (inputs.target_QI !== undefined && inputs.target_QI !== null && inputs.target_QI !== '') {
       const targetQI = parseFloat(inputs.target_QI);
-      let low = 0.0, high = pointR.t;
+      let low = minT, high = pointR.t;
       for (let i = 0; i < 60; i++) {
         const mid = (low + high) / 2.0;
         const wLine = getWOnRoomLine(mid);
@@ -372,9 +374,9 @@ const ClimaSolver = (() => {
         const mDot = deltaH > 0 ? q_i / deltaH : 0;
         const Q_calc = mDot * ptMid.v * 3600.0;
         if (Q_calc > targetQI) {
-          low = mid;
-        } else {
           high = mid;
+        } else {
+          low = mid;
         }
       }
       const TI = (low + high) / 2.0;
@@ -382,7 +384,7 @@ const ClimaSolver = (() => {
       pointI = solvePointFromProperties({ t: TI, w: wI }, P, lib);
     } else {
       const targetPhi = Math.max(1, Math.min(100, parseFloat(inputs.phi_I || 90.0))) / 100.0;
-      let low = 0.0;
+      let low = minT;
       let high = pointR.t;
       for (let iter = 0; iter < 60; iter++) {
         const mid = (low + high) / 2.0;
@@ -396,6 +398,9 @@ const ClimaSolver = (() => {
       }
       const TI = (low + high) / 2.0;
       const wI = getWOnRoomLine(TI);
+      if (wI < 0) {
+        throw new Error(`La recta de maniobra no arriba a la humitat d'impulsió sol·licitada (φ_I = ${Math.round(targetPhi * 100)}%).`);
+      }
       pointI = solvePointFromProperties({ t: TI, w: wI }, P, lib);
     }
 
@@ -413,8 +418,9 @@ const ClimaSolver = (() => {
     const m_dot_M = m_dot_I;
     let pointM = null;
     if (m_dot_M > 0) {
-      const w_M = (m_dot_v * pointV.w + m_dot_R * pointR.w) / m_dot_M;
-      const h_M = (m_dot_v * pointV.h + m_dot_R * pointR.h) / m_dot_M;
+      const m_dot_v_coil = Math.min(m_dot_v, m_dot_M);
+      const w_M = (m_dot_v_coil * pointV.w + m_dot_R * pointR.w) / m_dot_M;
+      const h_M = (m_dot_v_coil * pointV.h + m_dot_R * pointR.h) / m_dot_M;
       const T_M = lib.GetTDryBulbFromEnthalpyAndHumRatio(h_M * 1000.0, w_M);
       pointM = solvePointFromProperties({ t: T_M, w: w_M }, P, lib);
     } else {

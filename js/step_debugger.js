@@ -230,6 +230,7 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
 
   function renderCurrentStep() {
     if (!activeSolution) return;
+    if (typeof document === 'undefined') return;
 
     const data = getStepContent(currentStep, activeSolution);
 
@@ -248,7 +249,7 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
 
     if (containerFormula && typeof katex !== 'undefined') {
       try {
-        katex.render(data.latexFormula, containerFormula, { displayMode: true, throwOnError: true });
+        katex.render(data.latexFormula, containerFormula, { displayMode: true, throwOnError: false });
       } catch (err) {
         console.warn('KaTeX formula render fallback:', err);
         containerFormula.textContent = data.latexFormula;
@@ -257,7 +258,7 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
 
     if (containerSubst && typeof katex !== 'undefined') {
       try {
-        katex.render(data.latexSubstituted, containerSubst, { displayMode: true, throwOnError: true });
+        katex.render(data.latexSubstituted, containerSubst, { displayMode: true, throwOnError: false });
       } catch (err) {
         console.warn('KaTeX substituted render fallback:', err);
         containerSubst.textContent = data.latexSubstituted;
@@ -324,7 +325,15 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
   return {
     init,
     setSolution,
-    renderCurrentStep
+    renderCurrentStep,
+    getStepContent,
+    getPointLatexInfo,
+    getCurrentStep: () => currentStep,
+    nextStep,
+    prevStep,
+    firstStep,
+    lastStep,
+    TOTAL_STEPS
   };
 })();
 
