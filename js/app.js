@@ -753,9 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnZoomOut) btnZoomOut.addEventListener('click', () => PsychroChart.zoomOut('psychro-container'));
   if (btnZoomReset) btnZoomReset.addEventListener('click', () => PsychroChart.resetZoom('psychro-container'));
 
-  const btnExportSvg = document.getElementById('btn-export-svg');
   const btnExportPng = document.getElementById('btn-export-png');
-  if (btnExportSvg) btnExportSvg.addEventListener('click', () => PsychroChart.exportSvg('psychro-container'));
   if (btnExportPng) btnExportPng.addEventListener('click', () => PsychroChart.exportPng('psychro-container'));
 
   // Inicialització amb l'exemple per defecte

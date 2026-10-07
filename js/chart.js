@@ -392,29 +392,8 @@ const PsychroChart = (() => {
   }
 
   /**
-   * Converteix un element SVG en descàrrega directa de fitxer SVG
-   */
-  function exportSvg(targetId = null) {
-    if (typeof document === 'undefined') return;
-    const container = document.getElementById(targetId || defaultContainerId);
-    if (!container) return;
-    const svgEl = container.querySelector('svg');
-    if (!svgEl) return;
-
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'diagrama_psicrometric_carrier.svg';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  /**
-   * Converteix un element SVG en descàrrega directa d'imatge PNG d'alta resolució
+   * Converteix el diagrama SVG en una imatge PNG d'alta resolució (escala 2x).
+   * Assegura que tot el diagrama sencer queda capturat, centrat i amb fons blanc nítid.
    */
   function exportPng(targetId = null) {
     if (typeof document === 'undefined') return;
@@ -423,32 +402,72 @@ const PsychroChart = (() => {
     const svgEl = container.querySelector('svg');
     if (!svgEl) return;
 
-    const svgData = new XMLSerializer().serializeToString(svgEl);
+    // Clona l'element SVG per no modificar el DOM interactiu
+    const clone = svgEl.cloneNode(true);
+
+    // Elimina elements transitoris d'interacció (crosshairs, etc.)
+    const crosshair = clone.querySelector('.chart-crosshair-group');
+    if (crosshair) crosshair.remove();
+
+    // Fixa dimensions exactes en píxels i el viewBox complet 0..WIDTH, 0..HEIGHT
+    clone.setAttribute('width', `${WIDTH}`);
+    clone.setAttribute('height', `${HEIGHT}`);
+    clone.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    // Assegura fons blanc complet a tot el llenç del diagrama
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('x', '0');
+    bgRect.setAttribute('y', '0');
+    bgRect.setAttribute('width', `${WIDTH}`);
+    bgRect.setAttribute('height', `${HEIGHT}`);
+    bgRect.setAttribute('fill', '#ffffff');
+    clone.insertBefore(bgRect, clone.firstChild);
+
+    const svgData = new XMLSerializer().serializeToString(clone);
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(svgBlob);
     const img = new Image();
 
     img.onload = () => {
+      const scale = 2; // Resolució Retina 2x (1520x1160)
       const canvas = document.createElement('canvas');
-      // Resolució 2x per a impressió i informes d'alta qualitat
-      const scale = 2;
       canvas.width = WIDTH * scale;
       canvas.height = HEIGHT * scale;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
-      const pngUrl = canvas.toDataURL('image/png');
+      // Dibuixa l'SVG sencer ocupant el 100% de les dimensions del canvas
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+
       const a = document.createElement('a');
-      a.href = pngUrl;
       a.download = 'diagrama_psicrometric_carrier.png';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      if (canvas.toBlob) {
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const pngUrl = URL.createObjectURL(blob);
+          a.href = pngUrl;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(pngUrl), 1500);
+        }, 'image/png');
+      } else {
+        a.href = canvas.toDataURL('image/png');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    };
+
+    img.onerror = () => {
       URL.revokeObjectURL(url);
     };
+
     img.src = url;
   }
 
@@ -796,7 +815,6 @@ const PsychroChart = (() => {
     zoomOut,
     resetZoom,
     toggleLayer,
-    exportSvg,
     exportPng,
     layerState,
     T_MIN,
