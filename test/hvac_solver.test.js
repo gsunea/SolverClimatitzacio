@@ -123,7 +123,41 @@ describe('HVAC System Solver (ClimaSolver.solve)', () => {
 
     // Infiltration air leaks directly into the room, so coil sees less outdoor air
     assert.ok(solInfil.points.M.t < solNo.points.M.t, 'Mix point T_M should be cooler with outdoor infiltration bypassing coil');
-    assert.ok(solInfil.powers.q_bateria < solNo.powers.q_bateria, 'Coil cooling load is reduced when outdoor air infiltrates space directly');
+
+    // ...but the infiltration load moves to the room: the coil still removes q_i + q_v in both cases
+    for (const sol of [solNo, solInfil]) {
+      const closure = Math.abs(sol.powers.q_bateria - (sol.powers.q_i + sol.powers.q_v));
+      assert.ok(closure < 1e-6, `Coil energy balance must close: |q_bat - (q_i + q_v)| = ${closure} kW`);
+    }
+    assert.ok(solInfil.powers.q_room > solInfil.powers.q_i, 'Infiltration adds load to the room balance');
+  });
+
+  test('Regression: FCS_i passed as null (UI default) is derived from q_si and q_li', () => {
+    const sol = solver.solve({ ...canonicalInput, FCS_i: null });
+    assert.strictEqual(Math.round(sol.powers.FCS_i * 10000) / 10000, 0.8696);
+    assert.ok(sol.slopeRoom > 0, 'Room process line must not be horizontal');
+    assert.strictEqual(Math.round(sol.points.I.t * 10) / 10, 13.5);
+  });
+
+  test('FCS_i input drives q_li so loads stay consistent', () => {
+    const sol = solver.solve({ ...canonicalInput, FCS_i: 0.8 });
+    assert.ok(Math.abs(sol.powers.q_li - 5.0) < 1e-9);
+    assert.ok(Math.abs(sol.powers.q_si / sol.powers.q_i - 0.8) < 1e-9);
+    assert.throws(() => solver.solve({ ...canonicalInput, FCS_i: 1.2 }), /FCS_i/);
+  });
+
+  test('Unreachable impulse targets throw instead of returning silent wrong states', () => {
+    assert.throws(() => solver.solve({ ...canonicalInput, phi_I: 14 }), /φ_I/);
+    assert.throws(() => solver.solve({ ...canonicalInput, target_TI: 26 }), /inferior a la de retorn/);
+    assert.throws(() => solver.solve({ ...canonicalInput, target_TI: 5 }), /saturació/);
+    assert.throws(() => solver.solve({ ...canonicalInput, target_QI: 1 }), /massa petit/);
+  });
+
+  test('Mode w_I: target humidity on the room line', () => {
+    const ref = solver.solve(canonicalInput);
+    const sol = solver.solve({ ...canonicalInput, target_wI: ref.points.I.w });
+    assert.ok(Math.abs(sol.points.I.t - ref.points.I.t) < 1e-6);
+    assert.strictEqual(sol.impulseMode, 'w_I');
   });
 
   test('Pure Sensible Load: q_li = 0 => FCS_i = 1.0, room process line is horizontal (w_I = w_R)', () => {
@@ -153,6 +187,11 @@ describe('HVAC System Solver (ClimaSolver.solve)', () => {
     assert.strictEqual(sol.points.R.Q, 0);
     // Mix point becomes identical to outdoor ventilation point
     assert.strictEqual(sol.points.M.t, sol.points.V.t);
+    // Supply flow equals ventilation flow and the energy balance still closes
+    assert.ok(sol.allOutdoorAir);
+    assert.ok(Math.abs(sol.points.I.m_dot - sol.points.V.m_dot) < 1e-9);
+    const closure = Math.abs(sol.powers.q_bateria - (sol.powers.q_i + sol.powers.q_v));
+    assert.ok(closure < 1e-6, `Coil energy balance must close: ${closure} kW`);
   });
 
   test('Error handling: Missing pointV throws descriptive error', () => {

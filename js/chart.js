@@ -88,10 +88,25 @@ const PsychroChart = (() => {
     return null;
   }
 
+  /**
+   * Identificadors SVG únics per contenidor: diversos diagrames conviuen al mateix document
+   * i un id duplicat faria referència al primer (que pot estar ocult).
+   */
+  function makeIds(prefix) {
+    const p = prefix ? `${prefix}-` : '';
+    return {
+      clip: `${p}chart-clip`,
+      shadow: `${p}shadow`,
+      arrow_blue: `${p}arrow-blue`,
+      arrow_red: `${p}arrow-red`,
+      arrow_amber: `${p}arrow-amber`
+    };
+  }
+
   function isPointInBounds(pt) {
     if (!pt) return false;
     const t = Number(pt.t);
-    const w = Number(pt.w_g_kg !== undefined ? pt.w_g_kg : (pt.w ? pt.w * 1000 : NaN));
+    const w = Number(pt.w_g_kg !== undefined ? pt.w_g_kg : (pt.w !== undefined && pt.w !== null ? pt.w * 1000 : NaN));
     return (t >= T_MIN && t <= T_MAX && w >= W_MIN && w <= W_MAX);
   }
 
@@ -102,23 +117,25 @@ const PsychroChart = (() => {
     const showComfort = options.showComfort !== undefined ? options.showComfort : layerState.comfort;
     const showEnthalpy = options.showEnthalpy !== undefined ? options.showEnthalpy : layerState.enthalpy;
     const showVolume = options.showVolume !== undefined ? options.showVolume : layerState.volume;
+    const ids = makeIds(options.idPrefix);
+    const clip = `clip-path="url(#${ids.clip})"`;
 
     let svg = `<svg viewBox="0 0 ${WIDTH} ${HEIGHT}" width="100%" height="100%" class="psychro-svg" xmlns="http://www.w3.org/2000/svg">`;
     svg += `<defs>
-      <clipPath id="chart-clip">
+      <clipPath id="${ids.clip}">
         <rect x="${MARGIN.left}" y="${MARGIN.top}" width="${PLOT_W}" height="${PLOT_H}" />
       </clipPath>
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <filter id="${ids.shadow}" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
       </filter>
       <!-- Fletxes direccionals de procés termodinàmic -->
-      <marker id="arrow-blue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <marker id="${ids.arrow_blue}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0284c7" />
       </marker>
-      <marker id="arrow-red" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <marker id="${ids.arrow_red}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
       </marker>
-      <marker id="arrow-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <marker id="${ids.arrow_amber}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f59e0b" />
       </marker>
     </defs>`;
@@ -141,7 +158,7 @@ const PsychroChart = (() => {
         summerPath += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
       }
       summerPath += ' Z';
-      svg += `<path d="${summerPath}" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-width="1.2" stroke-dasharray="3,2" clip-path="url(#chart-clip)"/>`;
+      svg += `<path d="${summerPath}" fill="#10b981" fill-opacity="0.12" stroke="#10b981" stroke-width="1.2" stroke-dasharray="3,2" ${clip}/>`;
       svg += `<text x="${toX(24.5)}" y="${toY(lib.GetHumRatioFromRelHum(24.5, 0.50, P) * 1000) + 3}" font-size="9" fill="#059669" font-weight="600" text-anchor="middle" font-family="var(--font-sans), sans-serif">Zona Confort RITE</text>`;
     }
 
@@ -180,7 +197,7 @@ const PsychroChart = (() => {
           for (let i = 1; i < points.length; i++) {
             d += ` L ${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)}`;
           }
-          svg += `<path d="${d}" fill="none" stroke="#e2e8f0" stroke-dasharray="3,3" stroke-width="0.9" clip-path="url(#chart-clip)"/>`;
+          svg += `<path d="${d}" fill="none" stroke="#e2e8f0" stroke-dasharray="3,3" stroke-width="0.9" ${clip}/>`;
           const firstPt = points[0];
           svg += `<text x="${firstPt.x - 4}" y="${firstPt.y - 4}" font-size="9" fill="#94a3b8" text-anchor="end" font-family="var(--font-mono), monospace">${h_kJ}</text>`;
         }
@@ -206,7 +223,7 @@ const PsychroChart = (() => {
           for (let i = 1; i < points.length; i++) {
             d += ` L ${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)}`;
           }
-          svg += `<path d="${d}" fill="none" stroke="#e0f2fe" stroke-width="1" clip-path="url(#chart-clip)"/>`;
+          svg += `<path d="${d}" fill="none" stroke="#e0f2fe" stroke-width="1" ${clip}/>`;
           const lastPt = points[points.length - 1];
           if (lastPt.y < MARGIN.top + PLOT_H - 10) {
             svg += `<text x="${lastPt.x + 3}" y="${lastPt.y + 12}" font-size="9" fill="#38bdf8" text-anchor="start" font-family="var(--font-mono), monospace">${vTarget}</text>`;
@@ -231,7 +248,7 @@ const PsychroChart = (() => {
           if (T >= 36 && !labelPoint) labelPoint = { x, y };
         }
       }
-      svg += `<path d="${pathD}" fill="none" stroke="#94a3b8" stroke-width="0.9" clip-path="url(#chart-clip)"/>`;
+      svg += `<path d="${pathD}" fill="none" stroke="#94a3b8" stroke-width="0.9" ${clip}/>`;
       if (labelPoint) {
         svg += `<text x="${labelPoint.x}" y="${labelPoint.y - 4}" font-size="9.5" fill="#64748b" font-weight="600" text-anchor="middle" font-family="var(--font-mono), monospace">${phi}%</text>`;
       }
@@ -260,10 +277,10 @@ const PsychroChart = (() => {
         fogD += ` L ${satPolyPoints[i].x.toFixed(1)} ${satPolyPoints[i].y.toFixed(1)}`;
       }
       fogD += ` L ${MARGIN.left} ${first.y.toFixed(1)} Z`;
-      svg += `<path d="${fogD}" fill="#f8fafc" stroke="none" clip-path="url(#chart-clip)"/>`;
+      svg += `<path d="${fogD}" fill="#f8fafc" stroke="none" ${clip}/>`;
     }
 
-    svg += `<path d="${satPath}" fill="none" stroke="#0284c7" stroke-width="2.5" clip-path="url(#chart-clip)"/>`;
+    svg += `<path d="${satPath}" fill="none" stroke="#0284c7" stroke-width="2.5" ${clip}/>`;
     svg += `<text x="${toX(18)}" y="${toY(lib.GetSatHumRatio(18, P) * 1000) - 8}" font-size="10" fill="#0284c7" font-weight="700" font-family="var(--font-mono), monospace">φ = 100% (Saturació)</text>`;
 
     // 6. Marques graduades de temperatura humida (T_h) sobre la corba de saturació
@@ -273,8 +290,8 @@ const PsychroChart = (() => {
       if (w_sat <= W_MAX) {
         const x = toX(tb);
         const y = toY(w_sat);
-        svg += `<circle cx="${x}" cy="${y}" r="2" fill="#0284c7" clip-path="url(#chart-clip)"/>`;
-        svg += `<text x="${x - 5}" y="${y - 4}" font-size="8.5" fill="#0284c7" font-weight="600" text-anchor="end" font-family="var(--font-mono), monospace" clip-path="url(#chart-clip)">${tb}°</text>`;
+        svg += `<circle cx="${x}" cy="${y}" r="2" fill="#0284c7" ${clip}/>`;
+        svg += `<text x="${x - 5}" y="${y - 4}" font-size="8.5" fill="#0284c7" font-weight="600" text-anchor="end" font-family="var(--font-mono), monospace" ${clip}>${tb}°</text>`;
       }
     });
 
@@ -297,6 +314,8 @@ const PsychroChart = (() => {
 
     const P = (sol && sol.powers && sol.powers.P_atm_Pa) ? sol.powers.P_atm_Pa : 101325;
     let svg = buildBaseSvg(P, lib, options);
+    const ids = makeIds(options.idPrefix);
+    const clip = `clip-path="url(#${ids.clip})"`;
 
     if (sol && sol.points) {
       const pts = sol.points;
@@ -308,23 +327,25 @@ const PsychroChart = (() => {
 
       // Pas 4+: Recta de mescla V - R
       if (maxStep >= 4 && V && R) {
-        const markerAttr = (layerState.arrows && M) ? 'marker-end="url(#arrow-amber)"' : '';
-        svg += `<line x1="${toX(V.t)}" y1="${toY(V.w_g_kg)}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4" ${markerAttr} clip-path="url(#chart-clip)"/>`;
+        const markerAttr = (layerState.arrows && M) ? `marker-end="url(#${ids.arrow_amber})"` : '';
+        svg += `<line x1="${toX(V.t)}" y1="${toY(V.w_g_kg)}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4" ${markerAttr} ${clip}/>`;
       }
 
       // Pas 6+: Procés de bateria M - I i prolongació a S
-      if (maxStep >= 6 && M && I && S) {
-        const markerCoil = layerState.arrows ? 'marker-end="url(#arrow-blue)"' : '';
-        svg += `<line x1="${toX(M.t)}" y1="${toY(M.w_g_kg)}" x2="${toX(I.t)}" y2="${toY(I.w_g_kg)}" stroke="#0284c7" stroke-width="3" ${markerCoil} clip-path="url(#chart-clip)"/>`;
-        svg += `<line x1="${toX(I.t)}" y1="${toY(I.w_g_kg)}" x2="${toX(S.t)}" y2="${toY(S.w_g_kg)}" stroke="#38bdf8" stroke-width="2" stroke-dasharray="3,3" clip-path="url(#chart-clip)"/>`;
+      if (maxStep >= 6 && M && I) {
+        const markerCoil = layerState.arrows ? `marker-end="url(#${ids.arrow_blue})"` : '';
+        svg += `<line x1="${toX(M.t)}" y1="${toY(M.w_g_kg)}" x2="${toX(I.t)}" y2="${toY(I.w_g_kg)}" stroke="#0284c7" stroke-width="3" ${markerCoil} ${clip}/>`;
+        if (S) {
+          svg += `<line x1="${toX(I.t)}" y1="${toY(I.w_g_kg)}" x2="${toX(S.t)}" y2="${toY(S.w_g_kg)}" stroke="#38bdf8" stroke-width="2" stroke-dasharray="3,3" ${clip}/>`;
+        }
       }
 
       // Pas 2+: Maniobra de sala I - R (o recta que passa per R)
       if (maxStep >= 2 && R) {
         const xStart = (maxStep >= 3 && I) ? toX(I.t) : toX(R.t - 15);
         const yStart = (maxStep >= 3 && I) ? toY(I.w_g_kg) : toY(R.w_g_kg - (sol.slopeRoom || 0) * 15 * 1000);
-        const markerRoom = (layerState.arrows && maxStep >= 3 && I) ? 'marker-end="url(#arrow-red)"' : '';
-        svg += `<line x1="${xStart}" y1="${yStart}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#ef4444" stroke-width="${maxStep >= 3 ? 3 : 2}" stroke-dasharray="${maxStep >= 3 ? 'none' : '4,3'}" ${markerRoom} clip-path="url(#chart-clip)"/>`;
+        const markerRoom = (layerState.arrows && maxStep >= 3 && I) ? `marker-end="url(#${ids.arrow_red})"` : '';
+        svg += `<line x1="${xStart}" y1="${yStart}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#ef4444" stroke-width="${maxStep >= 3 ? 3 : 2}" stroke-dasharray="${maxStep >= 3 ? 'none' : '4,3'}" ${markerRoom} ${clip}/>`;
       }
 
       // Llista de punts segons el pas
@@ -343,7 +364,7 @@ const PsychroChart = (() => {
         pointList.push({ id: 'S', pt: S, name: 'S (Superfície)', color: '#06b6d4', dx: -12, dy: -8, anchor: 'end' });
       }
 
-      svg += `<g clip-path="url(#chart-clip)" class="chart-points-group">`;
+      svg += `<g ${clip} class="chart-points-group">`;
       pointList.forEach(item => {
         const x = toX(item.pt.t);
         const y = toY(item.pt.w_g_kg);
@@ -351,7 +372,7 @@ const PsychroChart = (() => {
 
         // Cercle amb targeta interactiva
         svg += `<g class="chart-interactive-point" data-point-id="${item.id}" style="cursor: pointer;">`;
-        svg += `<circle cx="${x}" cy="${y}" r="6.5" fill="${item.color}" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)" class="point-marker"/>`;
+        svg += `<circle cx="${x}" cy="${y}" r="6.5" fill="${item.color}" stroke="#ffffff" stroke-width="2.5" filter="url(#${ids.shadow})" class="point-marker"/>`;
         svg += `<circle cx="${x}" cy="${y}" r="14" fill="transparent" class="point-hitbox"/>`;
         svg += `<text x="${x + item.dx}" y="${y + item.dy}" font-size="11" font-weight="700" fill="${item.color}" text-anchor="${anchor}" font-family="var(--font-mono), monospace">${item.name.split(' ')[0]}</text>`;
         svg += `</g>`;
@@ -472,6 +493,46 @@ const PsychroChart = (() => {
   }
 
   /**
+   * Converteix coordenades de pantalla (clientX/Y) a coordenades de l'SVG (viewBox),
+   * tenint en compte el zoom i l'enquadrament (preserveAspectRatio) reals.
+   */
+  function clientToSvg(svgEl, clientX, clientY) {
+    const ctm = svgEl.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svgEl.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    return pt.matrixTransform(ctm.inverse());
+  }
+
+  /**
+   * Converteix coordenades de l'SVG a coordenades de pantalla
+   */
+  function svgToClient(svgEl, x, y) {
+    const ctm = svgEl.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svgEl.createSVGPoint();
+    pt.x = x;
+    pt.y = y;
+    return pt.matrixTransform(ctm);
+  }
+
+  // Un únic listener global per acabar l'arrossegament (evita acumular-ne un per render)
+  let mouseUpBound = false;
+  function bindGlobalMouseUp() {
+    if (mouseUpBound || typeof window === 'undefined') return;
+    mouseUpBound = true;
+    window.addEventListener('mouseup', () => {
+      Object.keys(viewState).forEach(id => {
+        if (viewState[id].isDragging) {
+          viewState[id].isDragging = false;
+          applyViewBox(id);
+        }
+      });
+    });
+  }
+
+  /**
    * Configura la interactivitat de ratolí (Pan, Zoom, Inspector, Tooltips) per a un contenidor
    */
   function setupContainerInteractivity(container, sol) {
@@ -481,8 +542,11 @@ const PsychroChart = (() => {
 
     const containerId = container.id;
     const state = getViewState(containerId);
+    state.isDragging = false;
     const lib = getPsychroLib();
     const P = (sol && sol.powers && sol.powers.P_atm_Pa) ? sol.powers.P_atm_Pa : 101325;
+
+    bindGlobalMouseUp();
 
     // Crea el contenidor flotant per al tooltip si no existeix
     let tooltip = container.querySelector('.psychro-tooltip');
@@ -499,7 +563,7 @@ const PsychroChart = (() => {
     if (!crosshairG) {
       crosshairG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       crosshairG.setAttribute('class', 'chart-crosshair-group');
-      crosshairG.setAttribute('clip-path', 'url(#chart-clip)');
+      crosshairG.setAttribute('clip-path', `url(#${makeIds(containerId).clip})`);
       crosshairG.style.pointerEvents = 'none';
       crosshairG.innerHTML = `
         <line class="ch-line-x" x1="0" y1="0" x2="0" y2="0" stroke="#0284c7" stroke-width="0.9" stroke-dasharray="2,2" opacity="0"/>
@@ -513,12 +577,15 @@ const PsychroChart = (() => {
     const chLineY = crosshairG.querySelector('.ch-line-y');
     const chDot = crosshairG.querySelector('.ch-dot');
 
-    // Pan & Zoom amb transformació de viewBox i límits estrictes
-    function applyLocalViewBox() {
-      applyViewBox(containerId);
+    function hideCrosshair() {
+      chLineX.setAttribute('opacity', '0');
+      chLineY.setAttribute('opacity', '0');
+      chDot.setAttribute('opacity', '0');
+      const inspectBar = document.getElementById('chart-inspector-bar');
+      if (inspectBar) inspectBar.innerHTML = '';
     }
 
-    applyLocalViewBox();
+    applyViewBox(containerId);
 
     // Gestió d'esdeveniments del ratolí
     svgEl.addEventListener('wheel', (e) => {
@@ -533,23 +600,21 @@ const PsychroChart = (() => {
         newScale = Math.min(newScale, 6.0);
       }
       state.scale = newScale;
-      applyLocalViewBox();
+      applyViewBox(containerId);
     }, { passive: false });
 
     svgEl.addEventListener('mousedown', (e) => {
       // Només es pot arrossegar si hi ha zoom actiu (scale > 1.0)
       if (e.button === 0 && state.scale > 1.001) {
+        const ctm = svgEl.getScreenCTM();
         state.isDragging = true;
-        state.startX = e.clientX - state.tx;
-        state.startY = e.clientY - state.ty;
+        state.startX = e.clientX;
+        state.startY = e.clientY;
+        state.startTx = state.tx;
+        state.startTy = state.ty;
+        // píxels de pantalla per unitat de viewBox (constant durant l'arrossegament)
+        state.pxPerUnit = ctm ? ctm.a : 1;
         svgEl.style.cursor = 'grabbing';
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (state.isDragging) {
-        state.isDragging = false;
-        applyLocalViewBox();
       }
     });
 
@@ -560,92 +625,75 @@ const PsychroChart = (() => {
     // Inspector psicromètric en temps real (mousemove)
     svgEl.addEventListener('mousemove', (e) => {
       if (state.isDragging && state.scale > 1.001) {
-        state.tx = e.clientX - state.startX;
-        state.ty = e.clientY - state.startY;
-        applyLocalViewBox();
+        // El contingut segueix el cursor 1:1 (tx/ty s'expressen en unitats de viewBox × escala)
+        const k = state.scale / (state.pxPerUnit || 1);
+        state.tx = state.startTx + (e.clientX - state.startX) * k;
+        state.ty = state.startTy + (e.clientY - state.startY) * k;
+        applyViewBox(containerId);
         return;
       }
 
-      const rect = svgEl.getBoundingClientRect();
-      const clientX = e.clientX - rect.left;
-      const clientY = e.clientY - rect.top;
-
-      // Converteix píxels a coordenades SVG viewBox
-      const currentViewBox = svgEl.viewBox.baseVal;
-      const svgX = currentViewBox.x + (clientX / rect.width) * currentViewBox.width;
-      const svgY = currentViewBox.y + (clientY / rect.height) * currentViewBox.height;
+      const p = clientToSvg(svgEl, e.clientX, e.clientY);
+      if (!p) return;
+      const svgX = p.x;
+      const svgY = p.y;
 
       // Comprova si està dins del requadre del diagrama
-      if (svgX >= MARGIN.left && svgX <= MARGIN.left + PLOT_W &&
-          svgY >= MARGIN.top && svgY <= MARGIN.top + PLOT_H) {
-        
-        const T = fromX(svgX);
-        const w_g = fromY(svgY);
+      const inside = svgX >= MARGIN.left && svgX <= MARGIN.left + PLOT_W &&
+        svgY >= MARGIN.top && svgY <= MARGIN.top + PLOT_H;
+      const T = fromX(svgX);
+      const w_g = fromY(svgY);
+      const w_sat = (inside && lib) ? lib.GetSatHumRatio(T, P) * 1000.0 : -1;
 
-        if (lib && T >= T_MIN && T <= T_MAX && w_g >= W_MIN && w_g <= W_MAX) {
-          const w_sat = lib.GetSatHumRatio(T, P) * 1000.0;
-          if (w_g <= w_sat) {
-            // Actualitza les línies creuades (crosshair)
-            chLineX.setAttribute('x1', svgX);
-            chLineX.setAttribute('y1', MARGIN.top);
-            chLineX.setAttribute('x2', svgX);
-            chLineX.setAttribute('y2', MARGIN.top + PLOT_H);
-            chLineX.setAttribute('opacity', '0.75');
-
-            chLineY.setAttribute('x1', MARGIN.left);
-            chLineY.setAttribute('y1', svgY);
-            chLineY.setAttribute('x2', MARGIN.left + PLOT_W);
-            chLineY.setAttribute('y2', svgY);
-            chLineY.setAttribute('opacity', '0.75');
-
-            chDot.setAttribute('cx', svgX);
-            chDot.setAttribute('cy', svgY);
-            chDot.setAttribute('opacity', '0.9');
-
-            // Càlcul psicromètric del punt sota el cursor
-            try {
-              const w_kg = w_g / 1000.0;
-              const phi = lib.GetRelHumFromHumRatio(T, w_kg, P) * 100.0;
-              const h_kJ = lib.GetMoistAirEnthalpy(T, w_kg) / 1000.0;
-              const th = lib.GetTWetBulbFromHumRatio(T, w_kg, P);
-              const tr = lib.GetTDewPointFromHumRatio(T, w_kg, P);
-              const v = lib.GetMoistAirVolume(T, w_kg, P);
-
-              const inspectBar = document.getElementById('chart-inspector-bar');
-              if (inspectBar) {
-                inspectBar.innerHTML = `
-                  <span class="inspect-item"><b>T:</b> ${T.toFixed(1)} °C</span>
-                  <span class="inspect-item"><b>w:</b> ${w_g.toFixed(2)} g/kg</span>
-                  <span class="inspect-item"><b>φ:</b> ${phi.toFixed(1)}%</span>
-                  <span class="inspect-item"><b>h:</b> ${h_kJ.toFixed(1)} kJ/kg</span>
-                  <span class="inspect-item"><b>T_h:</b> ${th.toFixed(1)} °C</span>
-                  <span class="inspect-item"><b>T_r:</b> ${tr.toFixed(1)} °C</span>
-                  <span class="inspect-item"><b>v:</b> ${v.toFixed(3)} m³/kg</span>
-                `;
-              }
-            } catch (err) {}
-          } else {
-            chLineX.setAttribute('opacity', '0');
-            chLineY.setAttribute('opacity', '0');
-            chDot.setAttribute('opacity', '0');
-          }
-        }
-      } else {
-        chLineX.setAttribute('opacity', '0');
-        chLineY.setAttribute('opacity', '0');
-        chDot.setAttribute('opacity', '0');
+      if (!inside || !lib || w_g < W_MIN || w_g > w_sat) {
+        hideCrosshair();
+        return;
       }
+
+      // Actualitza les línies creuades (crosshair)
+      chLineX.setAttribute('x1', svgX);
+      chLineX.setAttribute('y1', MARGIN.top);
+      chLineX.setAttribute('x2', svgX);
+      chLineX.setAttribute('y2', MARGIN.top + PLOT_H);
+      chLineX.setAttribute('opacity', '0.75');
+
+      chLineY.setAttribute('x1', MARGIN.left);
+      chLineY.setAttribute('y1', svgY);
+      chLineY.setAttribute('x2', MARGIN.left + PLOT_W);
+      chLineY.setAttribute('y2', svgY);
+      chLineY.setAttribute('opacity', '0.75');
+
+      chDot.setAttribute('cx', svgX);
+      chDot.setAttribute('cy', svgY);
+      chDot.setAttribute('opacity', '0.9');
+
+      // Càlcul psicromètric del punt sota el cursor
+      try {
+        const w_kg = w_g / 1000.0;
+        const phi = lib.GetRelHumFromHumRatio(T, w_kg, P) * 100.0;
+        const h_kJ = lib.GetMoistAirEnthalpy(T, w_kg) / 1000.0;
+        const th = lib.GetTWetBulbFromHumRatio(T, w_kg, P);
+        const tr = lib.GetTDewPointFromHumRatio(T, w_kg, P);
+        const v = lib.GetMoistAirVolume(T, w_kg, P);
+
+        const inspectBar = document.getElementById('chart-inspector-bar');
+        if (inspectBar) {
+          inspectBar.innerHTML = `
+            <span class="inspect-item"><b>T:</b> ${T.toFixed(1)} °C</span>
+            <span class="inspect-item"><b>w:</b> ${w_g.toFixed(2)} g/kg</span>
+            <span class="inspect-item"><b>φ:</b> ${phi.toFixed(1)}%</span>
+            <span class="inspect-item"><b>h:</b> ${h_kJ.toFixed(1)} kJ/kg</span>
+            <span class="inspect-item"><b>T_h:</b> ${th.toFixed(1)} °C</span>
+            <span class="inspect-item"><b>T_r:</b> ${tr.toFixed(1)} °C</span>
+            <span class="inspect-item"><b>v:</b> ${v.toFixed(3)} m³/kg</span>
+          `;
+        }
+      } catch (err) {}
     });
 
     svgEl.addEventListener('mouseleave', () => {
-      chLineX.setAttribute('opacity', '0');
-      chLineY.setAttribute('opacity', '0');
-      chDot.setAttribute('opacity', '0');
+      hideCrosshair();
       if (tooltip) tooltip.style.display = 'none';
-      const inspectBar = document.getElementById('chart-inspector-bar');
-      if (inspectBar) {
-        inspectBar.innerHTML = '';
-      }
     });
 
     // Tooltips per als punts interactius
@@ -654,15 +702,13 @@ const PsychroChart = (() => {
       const ptId = el.getAttribute('data-point-id');
       const pt = (sol && sol.points) ? sol.points[ptId] : null;
 
-      el.addEventListener('mouseenter', (e) => {
+      el.addEventListener('mouseenter', () => {
         if (!pt || !tooltip) return;
         const rect = container.getBoundingClientRect();
-        const ptX = toX(pt.t);
-        const ptY = toY(pt.w_g_kg);
-
-        const currentViewBox = svgEl.viewBox.baseVal;
-        const normX = ((ptX - currentViewBox.x) / currentViewBox.width) * rect.width;
-        const normY = ((ptY - currentViewBox.y) / currentViewBox.height) * rect.height;
+        const client = svgToClient(svgEl, toX(pt.t), toY(pt.w_g_kg));
+        if (!client) return;
+        const normX = client.x - rect.left;
+        const normY = client.y - rect.top;
 
         const colorMap = {
           V: '#f59e0b',
@@ -715,7 +761,7 @@ const PsychroChart = (() => {
   function render(sol, maxStep = 7, targetId = null) {
     const id = targetId || defaultContainerId;
     const container = typeof document !== 'undefined' ? document.getElementById(id) : null;
-    const svg = generateSvg(sol, maxStep);
+    const svg = generateSvg(sol, maxStep, container ? { idPrefix: id } : {});
     if (container && svg) {
       container.innerHTML = svg;
       setupContainerInteractivity(container, sol);
