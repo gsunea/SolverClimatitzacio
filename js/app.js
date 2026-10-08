@@ -24,16 +24,19 @@ document.addEventListener('DOMContentLoaded', () => {
     v: {
       activeProps: ['t', 'phi'],
       userValues: { t: 31.0, phi: 70.0 },
-      solved: null
+      solved: null,
+      error: null
     },
     r: {
       activeProps: ['t', 'phi'],
       userValues: { t: 24.0, phi: 50.0 },
-      solved: null
+      solved: null,
+      error: null
     },
     i: {
-      activeProp: 'phi', // 'phi', 't', or 'w'
-      userValue: 90.0
+      activeProp: 'phi', // 'phi', 't', 'w' o 'qi'
+      userValue: 90.0,
+      lastPhi: 90.0 // últim φ_I introduït (per tornar al mode φ_I)
     },
     s: {
       manualTs: null
@@ -129,7 +132,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const badge = document.getElementById(`badge-${ptKey}-props`);
     if (!badge) return;
 
-    if (state.activeProps.length === 2 && state.solved) {
+    if (state.error) {
+      badge.className = 'prop-counter-pill incomplete';
+      badge.textContent = '⚠ error';
+      badge.title = state.error;
+    } else if (state.activeProps.length === 2 && state.solved) {
       badge.className = 'prop-counter-pill ready';
       const labels = state.activeProps.map(p => PROP_NAMES[p]).join(' + ');
       badge.textContent = `✓ [${labels}]`;
@@ -150,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function updatePointRowUI(ptKey, keepFocus = false) {
     const state = pointState[ptKey];
-    const P = 101325; // Pressió estàndard Pa
+    state.error = null;
 
     if (state.activeProps.length >= 2) {
       try {
@@ -182,8 +189,17 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
       } catch (err) {
-        console.warn(`No s'ha pogut resoldre el punt ${ptKey}:`, err.message);
         state.solved = null;
+        state.error = err.message;
+        // No deixar valors calculats d'un estat anterior a la fila
+        PROPS.forEach(p => {
+          const input = document.getElementById(`cell-${ptKey}-${p}`);
+          if (input && !state.activeProps.includes(p)) {
+            input.classList.remove('is-source');
+            input.classList.add('is-calc');
+            input.value = '';
+          }
+        });
       }
     } else {
       state.solved = null;
@@ -221,8 +237,28 @@ document.addEventListener('DOMContentLoaded', () => {
   function clearOutputs() {
     lastSolution = null;
     OUTPUT_IDS.forEach(id => setCell(id, '—'));
+    // Cel·les d'entrada que només mostren resultats calculats
+    [cellIT, cellIPhi, cellIW, cellST, inQi].forEach(el => {
+      if (el && el.classList.contains('is-calc') && document.activeElement !== el) el.value = '';
+    });
     PsychroChart.render(null, 7, 'psychro-container');
-    PsychroChart.render(null, 1, 'debug-psychro-container');
+    StepDebugger.clear();
+  }
+
+  /**
+   * Recalcula si hi ha dades suficients; si no, esborra els resultats antics
+   */
+  function refresh() {
+    if (checkDataStatus()) {
+      solveSystem();
+    } else {
+      clearOutputs();
+    }
+  }
+
+  function setStatus(kind, text) {
+    statusPill.className = `status-badge ${kind}`;
+    statusText.textContent = text;
   }
 
   function setupPointRow(ptKey, clearBtnId) {
@@ -253,10 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         updatePointRowUI(ptKey, true);
-        checkDataStatus();
-        if (checkDataStatus(false)) {
-          solveSystem();
-        }
+        refresh();
       });
     });
 
@@ -273,9 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
             input.classList.add('is-calc');
           }
         });
+        state.error = null;
         updatePointBadge(ptKey);
-        clearOutputs();
-        checkDataStatus();
+        refresh();
       });
     }
   }
@@ -284,55 +317,52 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPointRow('r', 'btn-clear-r');
 
   // Gestió d'Impulsió (I)
-  function setupImpulsioInputs() {
+  const IMPULSE_BADGES = { phi: 'φ_I', t: 'T_I', w: 'w_I', qi: 'Q_I' };
+
+  /**
+   * Fixa la condició d'impulsió activa i marca visualment la cel·la font
+   */
+  function setImpulseMode(mode, value) {
+    pointState.i.activeProp = mode;
+    if (mode !== 'qi') {
+      pointState.i.userValue = value;
+      pointState.flows.manualQi = null;
+    }
+    if (mode === 'phi') pointState.i.lastPhi = value;
+
+    const cells = { phi: cellIPhi, t: cellIT, w: cellIW, qi: inQi };
+    Object.keys(cells).forEach(key => {
+      const el = cells[key];
+      if (key === mode) {
+        el.classList.add('is-source'); el.classList.remove('is-calc');
+      } else {
+        el.classList.remove('is-source'); el.classList.add('is-calc');
+      }
+    });
     const badgeI = document.getElementById('badge-i-cond');
+    if (badgeI) badgeI.textContent = IMPULSE_BADGES[mode];
+  }
 
-    cellIPhi.addEventListener('input', () => {
-      const val = parseNum(cellIPhi.value);
-      if (val !== null) {
-        pointState.i.activeProp = 'phi';
-        pointState.i.userValue = val;
-        pointState.flows.manualQi = null;
-        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
-        cellIPhi.classList.add('is-source'); cellIPhi.classList.remove('is-calc');
-        cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
-        cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
-        if (badgeI) badgeI.textContent = 'φ_I';
-      }
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
-    });
+  /**
+   * Torna al mode per defecte φ_I amb l'últim valor de φ_I introduït
+   */
+  function revertToPhiMode() {
+    setImpulseMode('phi', pointState.i.lastPhi);
+    if (document.activeElement !== cellIPhi) cellIPhi.value = `${fmt(pointState.i.lastPhi, 1)}%`;
+  }
 
-    cellIT.addEventListener('input', () => {
-      const val = parseNum(cellIT.value);
-      if (val !== null) {
-        pointState.i.activeProp = 't';
-        pointState.i.userValue = val;
-        pointState.flows.manualQi = null;
-        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
-        cellIT.classList.add('is-source'); cellIT.classList.remove('is-calc');
-        cellIPhi.classList.remove('is-source'); cellIPhi.classList.add('is-calc');
-        cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
-        if (badgeI) badgeI.textContent = 'T_I';
-      }
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
-    });
-
-    cellIW.addEventListener('input', () => {
-      const val = parseNum(cellIW.value);
-      if (val !== null) {
-        pointState.i.activeProp = 'w';
-        pointState.i.userValue = val;
-        pointState.flows.manualQi = null;
-        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
-        cellIW.classList.add('is-source'); cellIW.classList.remove('is-calc');
-        cellIPhi.classList.remove('is-source'); cellIPhi.classList.add('is-calc');
-        cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
-        if (badgeI) badgeI.textContent = 'w_I';
-      }
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+  function setupImpulsioInputs() {
+    [['phi', cellIPhi], ['t', cellIT], ['w', cellIW]].forEach(([mode, cell]) => {
+      cell.addEventListener('input', () => {
+        const val = parseNum(cell.value);
+        if (val !== null) {
+          setImpulseMode(mode, val);
+        } else if (pointState.i.activeProp === mode && mode !== 'phi') {
+          // S'ha esborrat la condició activa: tornar a φ_I
+          revertToPhiMode();
+        }
+        refresh();
+      });
     });
   }
 
@@ -350,18 +380,20 @@ document.addEventListener('DOMContentLoaded', () => {
         cellST.classList.remove('is-source');
         cellST.classList.add('is-calc');
       }
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      refresh();
     });
   }
 
   // Gestió de Potències i FCS
+  function isValidFcs(fcs) {
+    return fcs !== null && fcs > 0 && fcs <= 1;
+  }
+
   function setupPowersInputs() {
     inQsi.addEventListener('input', () => {
       pointState.powers.q_si = parseNum(inQsi.value);
       updatePowersUI();
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      refresh();
     });
 
     inQli.addEventListener('input', () => {
@@ -370,38 +402,39 @@ document.addEventListener('DOMContentLoaded', () => {
       inQli.classList.add('is-source'); inQli.classList.remove('is-calc');
       inFcsi.classList.remove('is-source'); inFcsi.classList.add('is-calc');
       updatePowersUI();
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      refresh();
     });
 
     inFcsi.addEventListener('input', () => {
       pointState.powers.lastEdited = 'fcsi';
-      const fcs = parseNum(inFcsi.value);
-      pointState.powers.fcs_i = fcs;
+      pointState.powers.fcs_i = parseNum(inFcsi.value);
       inFcsi.classList.add('is-source'); inFcsi.classList.remove('is-calc');
       inQli.classList.remove('is-source'); inQli.classList.add('is-calc');
-
-      if (fcs !== null && fcs > 0 && fcs <= 1 && pointState.powers.q_si > 0) {
-        const q_tot = pointState.powers.q_si / fcs;
-        const q_li = q_tot - pointState.powers.q_si;
-        pointState.powers.q_li = q_li;
-        inQli.value = fmt(q_li, 2);
-      }
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      updatePowersUI();
+      refresh();
     });
   }
 
+  /**
+   * Manté q_li i FCS_i coherents segons quin dels dos ha editat l'usuari
+   */
   function updatePowersUI() {
-    const qsi = pointState.powers.q_si;
-    const qli = pointState.powers.q_li;
-    if (pointState.powers.lastEdited === 'qli') {
-      if (qsi !== null && qli !== null && (qsi + qli) > 0) {
-        const fcs = qsi / (qsi + qli);
-        pointState.powers.fcs_i = fcs;
-        if (document.activeElement !== inFcsi) {
-          inFcsi.value = fmt(fcs, 4);
-        }
+    const p = pointState.powers;
+    if (p.lastEdited === 'qli') {
+      if (p.q_si !== null && p.q_li !== null && (p.q_si + p.q_li) > 0) {
+        p.fcs_i = p.q_si / (p.q_si + p.q_li);
+        if (document.activeElement !== inFcsi) inFcsi.value = fmt(p.fcs_i, 4);
+      } else {
+        p.fcs_i = null;
+        if (document.activeElement !== inFcsi) inFcsi.value = '';
+      }
+    } else {
+      if (isValidFcs(p.fcs_i) && p.q_si !== null && p.q_si > 0) {
+        p.q_li = p.q_si / p.fcs_i - p.q_si;
+        if (document.activeElement !== inQli) inQli.value = fmt(p.q_li, 2);
+      } else {
+        p.q_li = null;
+        if (document.activeElement !== inQli) inQli.value = '';
       }
     }
   }
@@ -412,35 +445,30 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupFlowsInputs() {
     inQv.addEventListener('input', () => {
       pointState.flows.q_v = parseNum(inQv.value);
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      refresh();
     });
 
     inQi.addEventListener('input', () => {
       const val = parseNum(inQi.value);
-      pointState.flows.manualQi = val;
-      const badgeI = document.getElementById('badge-i-cond');
       if (val !== null && val > 0) {
-        inQi.classList.add('is-source'); inQi.classList.remove('is-calc');
-        pointState.i.activeProp = 'qi';
-        cellIPhi.classList.remove('is-source'); cellIPhi.classList.add('is-calc');
-        cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
-        cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
-        if (badgeI) badgeI.textContent = 'Q_I';
+        pointState.flows.manualQi = val;
+        setImpulseMode('qi', val);
       } else {
-        inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
-        pointState.i.activeProp = 'phi';
-        cellIPhi.classList.add('is-source'); cellIPhi.classList.remove('is-calc');
-        if (badgeI) badgeI.textContent = 'φ_I';
+        pointState.flows.manualQi = null;
+        if (pointState.i.activeProp === 'qi') revertToPhiMode();
       }
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      refresh();
+    });
+
+    // En sortir de la cel·la, si Q_I és un valor calculat, tornar a mostrar el resultat vigent
+    inQi.addEventListener('blur', () => {
+      if (lastSolution && inQi.classList.contains('is-calc')) inQi.value = fmt(lastSolution.points.I.Q, 1);
     });
 
     inInfil.addEventListener('input', () => {
-      pointState.fr_infiltr = (parseNum(inInfil.value) || 0) / 100.0;
-      checkDataStatus();
-      if (checkDataStatus(false)) solveSystem();
+      const pct = parseNum(inInfil.value) || 0;
+      pointState.fr_infiltr = Math.max(0, Math.min(100, pct)) / 100.0;
+      refresh();
     });
   }
 
@@ -450,26 +478,29 @@ document.addEventListener('DOMContentLoaded', () => {
    * Comprova si les dades d'entrada necessàries estan completes
    */
   function checkDataStatus(updateUI = true) {
+    const p = pointState.powers;
     const hasV = pointState.v.solved !== null;
     const hasR = pointState.r.solved !== null;
-    const hasQsi = pointState.powers.q_si !== null && pointState.powers.q_si > 0;
-    const hasQli = pointState.powers.q_li !== null && pointState.powers.q_li >= 0;
+    const hasQsi = p.q_si !== null && p.q_si > 0;
+    const hasQli = p.lastEdited === 'fcsi'
+      ? isValidFcs(p.fcs_i)
+      : (p.q_li !== null && p.q_li >= 0);
     const hasQv = pointState.flows.q_v !== null && pointState.flows.q_v > 0;
 
     const isReady = hasV && hasR && hasQsi && hasQli && hasQv;
 
     if (updateUI) {
       if (isReady) {
-        statusPill.className = 'status-badge ready';
-        statusText.textContent = 'Dades suficients per calcular';
+        setStatus('ready', 'Dades suficients per calcular');
       } else {
-        statusPill.className = 'status-badge missing';
         let msg = 'Falten dades de partida:';
-        if (!hasV) msg += ' 2 propietats a Ventilació;';
-        if (!hasR) msg += ' 2 propietats a Retorn;';
-        if (!hasQsi || !hasQli) msg += ' potències interiors q_si/q_li;';
+        if (!hasV) msg += pointState.v.error ? ` Ventilació (${pointState.v.error});` : ' 2 propietats a Ventilació;';
+        if (!hasR) msg += pointState.r.error ? ` Retorn (${pointState.r.error});` : ' 2 propietats a Retorn;';
+        if (!hasQsi) msg += ' q_si > 0;';
+        if (!hasQli) msg += p.lastEdited === 'fcsi' ? ' FCS_i entre 0 i 1;' : ' q_li ≥ 0;';
         if (!hasQv) msg += ' cabal de ventilació Q_v;';
-        statusText.textContent = msg.replace(/;$/, '');
+        const anyError = pointState.v.error || pointState.r.error;
+        setStatus(anyError ? 'error' : 'missing', msg.replace(/;$/, ''));
       }
     }
 
@@ -481,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function solveSystem() {
     if (!checkDataStatus(true)) {
-      alert('Si us plau, omple les dades de partida necessàries abans de solucionar (es requereixen 2 propietats independents per a Ventilació i Retorn).');
+      clearOutputs();
       return;
     }
 
@@ -497,21 +528,15 @@ document.addEventListener('DOMContentLoaded', () => {
         altitude: 0
       };
 
-      if (pointState.flows.manualQi !== null && pointState.flows.manualQi > 0) {
+      const mode = pointState.i.activeProp;
+      if (mode === 'qi' && pointState.flows.manualQi !== null) {
         inputs.target_QI = pointState.flows.manualQi;
-      } else if (pointState.i.activeProp === 't' && pointState.i.userValue !== null) {
+      } else if (mode === 't') {
         inputs.target_TI = pointState.i.userValue;
-      } else if (pointState.i.activeProp === 'w' && pointState.i.userValue !== null) {
-        const q_tot = (pointState.powers.q_si || 0) + (pointState.powers.q_li || 0);
-        const fcs = (inputs.FCS_i !== null && inputs.FCS_i > 0)
-          ? inputs.FCS_i
-          : (pointState.powers.fcs_i || (q_tot > 0 ? pointState.powers.q_si / q_tot : 1.0));
-        const slope = (fcs > 0 && fcs < 1) ? ((1 - fcs) / fcs) * (1.006 / 2501) : 0;
-        if (slope > 0 && pointState.r.solved) {
-          inputs.target_TI = pointState.r.solved.t - (pointState.r.solved.w - pointState.i.userValue / 1000.0) / slope;
-        }
+      } else if (mode === 'w') {
+        inputs.target_wI = pointState.i.userValue / 1000.0;
       } else {
-        inputs.phi_I = pointState.i.userValue || 90.0;
+        inputs.phi_I = pointState.i.userValue;
       }
 
       if (pointState.s.manualTs !== null) {
@@ -542,13 +567,14 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('out-i-tr', fmt(pts.I.tr, 1));
       setCell('out-i-th', fmt(pts.I.th, 1));
 
-      // Superfície (S)
-      if (document.activeElement !== cellST) cellST.value = fmt(pts.S.t, 1);
-      setCell('out-s-w', fmt(pts.S.w_g_kg, 1));
-      setCell('out-s-v', fmt(pts.S.v, 3));
-      setCell('out-s-h', fmt(pts.S.h, 2));
-      setCell('out-s-tr', fmt(pts.S.tr, 1));
-      setCell('out-s-th', fmt(pts.S.th, 1));
+      // Superfície (S) — pot no existir si la recta de bateria no talla la saturació
+      const S = pts.S || {};
+      if (document.activeElement !== cellST) cellST.value = pts.S ? fmt(S.t, 1) : '';
+      setCell('out-s-w', fmt(S.w_g_kg, 1));
+      setCell('out-s-v', fmt(S.v, 3));
+      setCell('out-s-h', fmt(S.h, 2));
+      setCell('out-s-tr', fmt(S.tr, 1));
+      setCell('out-s-th', fmt(S.th, 1));
 
       // 2. Taula de Potències
       setCell('out-fbp', fmt(pow.FBP, 4));
@@ -557,6 +583,9 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('out-qtot', fmt(pow.q_total, 2));
       setCell('out-fcstot', fmt(pow.FCS_total, 4));
       if (document.activeElement !== inFcsi) inFcsi.value = fmt(pow.FCS_i, 4);
+      if (pointState.powers.lastEdited === 'fcsi' && document.activeElement !== inQli) {
+        inQli.value = fmt(pow.q_li, 2);
+      }
 
       // 3. Taula de Cabals
       if (document.activeElement !== inQi) inQi.value = fmt(pts.I.Q, 1);
@@ -570,14 +599,21 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('kpi-quick-mcond', `${fmt(pow.M_cond_h, 1)} kg/h`);
       setCell('kpi-quick-qi', `${fmt(pts.I.Q, 0)} m³/h`);
 
+      if (sol.warnings && sol.warnings.length) {
+        setStatus('missing', `Calculat amb avisos: ${sol.warnings.join(' ')}`);
+      } else {
+        setStatus('ready', 'Càlcul completat');
+      }
+
       // Dibuixar diagrama psicromètric
       PsychroChart.render(sol, 7, 'psychro-container');
 
-      // Actualitzar el debugger
-      StepDebugger.setSolution(sol);
+      // Actualitzar el debugger (mantenint el pas on es trobava l'usuari)
+      StepDebugger.setSolution(sol, { keepStep: true });
     } catch (err) {
       console.error('Error calculant:', err);
-      alert('Error en els càlculs termodinàmics. Comprova que els valors introduïts siguin coherents.');
+      clearOutputs();
+      setStatus('error', `Error en els càlculs: ${err.message}`);
     }
   }
 
@@ -591,12 +627,8 @@ document.addEventListener('DOMContentLoaded', () => {
     pointState.r.activeProps = ['t', 'phi'];
     pointState.r.userValues = { t: 24.0, phi: 50.0 };
 
-    pointState.i.activeProp = 'phi';
-    pointState.i.userValue = 90.0;
+    setImpulseMode('phi', 90.0);
     cellIPhi.value = '90%';
-    cellIPhi.classList.add('is-source'); cellIPhi.classList.remove('is-calc');
-    cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
-    cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
 
     pointState.s.manualTs = null;
     if (cellST) {
@@ -612,10 +644,10 @@ document.addEventListener('DOMContentLoaded', () => {
     inQli.classList.add('is-source'); inQli.classList.remove('is-calc');
     inFcsi.classList.remove('is-source'); inFcsi.classList.add('is-calc');
 
+    updatePowersUI();
+
     pointState.flows.q_v = 1000.0;
-    pointState.flows.manualQi = null;
     inQv.value = '1000,0';
-    inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
 
     pointState.fr_infiltr = 0.0;
     inInfil.value = '0%';
@@ -648,8 +680,8 @@ document.addEventListener('DOMContentLoaded', () => {
     pointState.powers.lastEdited = 'qli';
     pointState.flows.q_v = null;
     pointState.fr_infiltr = 0.0;
-    pointState.i.activeProp = 'phi';
-    pointState.i.userValue = 90.0;
+    pointState.v.error = null;
+    pointState.r.error = null;
 
     PROPS.forEach(p => {
       const inV = document.getElementById(`cell-v-${p}`);
@@ -658,14 +690,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inR) { inR.value = ''; inR.classList.remove('is-source'); inR.classList.add('is-calc'); }
     });
 
+    setImpulseMode('phi', 90.0);
     cellIT.value = '';
     cellIPhi.value = '90%';
     cellIW.value = '';
-    cellIPhi.classList.remove('is-calc'); cellIPhi.classList.add('is-source');
-    cellIT.classList.remove('is-source'); cellIT.classList.add('is-calc');
-    cellIW.classList.remove('is-source'); cellIW.classList.add('is-calc');
-    const badgeI = document.getElementById('badge-i-cond');
-    if (badgeI) badgeI.textContent = 'φ_I';
 
     if (cellST) {
       cellST.value = '';
@@ -684,7 +712,6 @@ document.addEventListener('DOMContentLoaded', () => {
     inQli.classList.remove('is-calc'); inQli.classList.add('is-source');
     inFcsi.classList.remove('is-source'); inFcsi.classList.add('is-calc');
     inQv.classList.remove('is-calc'); inQv.classList.add('is-source');
-    inQi.classList.remove('is-source'); inQi.classList.add('is-calc');
 
     clearOutputs();
     updatePointBadge('v');
@@ -713,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
         solveSystem();
       }
       if (lastSolution) {
-        StepDebugger.setSolution(lastSolution);
+        StepDebugger.setSolution(lastSolution, { keepStep: true });
       }
     }
   }
@@ -740,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseFullscreen) btnCloseFullscreen.addEventListener('click', closeFullscreenChart);
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalFullscreen.style.display !== 'none') {
+    if (e.key === 'Escape' && modalFullscreen && modalFullscreen.style.display !== 'none') {
       closeFullscreenChart();
     }
   });

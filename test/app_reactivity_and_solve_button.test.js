@@ -98,6 +98,11 @@ describe('App Reactivity and Solve Button Review', () => {
     const jsContent = fs.readFileSync(jsPath, 'utf-8');
 
     // Verify solveSystem is called reactively on input changes
-    assert.ok(jsContent.includes("if (checkDataStatus(false)) solveSystem();"), 'solveSystem must be triggered reactively when data is valid');
+    // Input handlers call refresh(), which solves when data is ready and clears stale results otherwise
+    assert.ok(/function refresh\(\) \{\s*if \(checkDataStatus\(\)\) \{\s*solveSystem\(\);\s*\} else \{\s*clearOutputs\(\);/.test(jsContent),
+      'refresh() must solve when data is valid and clear outputs otherwise');
+    const handlerCalls = jsContent.match(/addEventListener\('input'[\s\S]*?refresh\(\);/g) || [];
+    assert.ok(handlerCalls.length >= 8, `Input handlers must trigger refresh() (found ${handlerCalls.length})`);
+    assert.ok(!jsContent.includes('alert('), 'Calculation errors must be shown in the status bar, not with blocking alerts');
   });
 });

@@ -128,6 +128,17 @@ describe('Thermodynamic State Points (solvePointFromProperties)', () => {
     assert.strictEqual(resSingle, null);
   });
 
+  test('Error handling: supersaturated and incoherent states throw', () => {
+    assert.throws(() => solver.solvePointFromProperties({ t: 20.0, w_g_kg: 20.0 }, P_STD, pl), /sobresaturat/i);
+    assert.throws(() => solver.solvePointFromProperties({ t: 20.0, h: 5.0 }, P_STD, pl), /negativa|incoherents/i);
+    assert.throws(() => solver.solvePointFromProperties({ w: 0.01, phi: 0 }, P_STD, pl), /φ > 0/);
+  });
+
+  test('Ill-conditioned pair (h, th) carries a warning', () => {
+    const res = solver.solvePointFromProperties({ h: basePoint.h, th: basePoint.th }, P_STD, pl);
+    assert.ok(res.warning && /dependents/.test(res.warning));
+  });
+
   test('Unit helper: accepts w_g_kg instead of w (in kg/kg)', () => {
     const resG = solver.solvePointFromProperties({ t: 25.0, w_g_kg: 9.89 }, P_STD, pl);
     assert.ok(resG, 'Point should be solved from w_g_kg');

@@ -491,6 +491,16 @@ body {
   background-color: #d97706;
 }
 
+.status-badge.error {
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.status-badge.error .status-indicator-dot {
+  background-color: #dc2626;
+}
+
 .btn-primary-action {
   font-family: var(--font-sans);
   background-color: #111827;
