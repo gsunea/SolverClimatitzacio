@@ -745,6 +745,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Controls de la Barra d'Eines del Gràfic (Zoom i Exportació)
+  const btnZoomIn = document.getElementById('chart-btn-zoom-in');
+  const btnZoomOut = document.getElementById('chart-btn-zoom-out');
+  const btnZoomReset = document.getElementById('chart-btn-zoom-reset');
+  if (btnZoomIn) btnZoomIn.addEventListener('click', () => PsychroChart.zoomIn('psychro-container'));
+  if (btnZoomOut) btnZoomOut.addEventListener('click', () => PsychroChart.zoomOut('psychro-container'));
+  if (btnZoomReset) btnZoomReset.addEventListener('click', () => PsychroChart.resetZoom('psychro-container'));
+
+  const btnExportPng = document.getElementById('btn-export-png');
+  if (btnExportPng) btnExportPng.addEventListener('click', () => PsychroChart.exportPng('psychro-container'));
+
   // Inicialització amb l'exemple per defecte
   loadExample();
 });

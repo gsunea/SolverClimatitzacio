@@ -304,11 +304,25 @@
               <h2>Diagrama Psicromètric</h2>
               <span class="chart-subtitle">Carta Carrier / ASHRAE (P = 101,325 kPa)</span>
             </div>
-            <button type="button" id="btn-fullscreen-chart" class="btn-icon-text" title="Ampliar a pantalla completa">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-              Pantalla Completa
-            </button>
+            <div class="chart-header-actions">
+              <div class="zoom-btn-group">
+                <button type="button" id="chart-btn-zoom-in" class="btn-tool" title="Apropar (Zoom In)">＋</button>
+                <button type="button" id="chart-btn-zoom-out" class="btn-tool" title="Allunyar (Zoom Out)">－</button>
+                <button type="button" id="chart-btn-zoom-reset" class="btn-tool" title="Restablir vista (100%)">⟲</button>
+              </div>
+              <button type="button" id="btn-export-png" class="btn-icon-text" title="Descarregar imatge d'alta resolució (PNG)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                PNG
+              </button>
+              <button type="button" id="btn-fullscreen-chart" class="btn-icon-text" title="Ampliar a pantalla completa">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                Pantalla Completa
+              </button>
+            </div>
           </div>
+
+          <!-- Barra d'inspecció psicromètrica viva -->
+          <div id="chart-inspector-bar" class="chart-inspector-bar"></div>
           
           <div id="psychro-container"></div>
         </div>
