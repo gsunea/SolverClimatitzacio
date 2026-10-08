@@ -518,18 +518,20 @@ const PsychroChart = (() => {
   }
 
   // Un únic listener global per acabar l'arrossegament (evita acumular-ne un per render)
-  let mouseUpBound = false;
-  function bindGlobalMouseUp() {
-    if (mouseUpBound || typeof window === 'undefined') return;
-    mouseUpBound = true;
-    window.addEventListener('mouseup', () => {
+  let pointerUpBound = false;
+  function bindGlobalPointerUp() {
+    if (pointerUpBound || typeof window === 'undefined') return;
+    pointerUpBound = true;
+    const endDrag = () => {
       Object.keys(viewState).forEach(id => {
         if (viewState[id].isDragging) {
           viewState[id].isDragging = false;
           applyViewBox(id);
         }
       });
-    });
+    };
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
   }
 
   /**
@@ -546,7 +548,7 @@ const PsychroChart = (() => {
     const lib = getPsychroLib();
     const P = (sol && sol.powers && sol.powers.P_atm_Pa) ? sol.powers.P_atm_Pa : 101325;
 
-    bindGlobalMouseUp();
+    bindGlobalPointerUp();
 
     // Crea el contenidor flotant per al tooltip si no existeix
     let tooltip = container.querySelector('.psychro-tooltip');
@@ -603,11 +605,13 @@ const PsychroChart = (() => {
       applyViewBox(containerId);
     }, { passive: false });
 
-    svgEl.addEventListener('mousedown', (e) => {
-      // Només es pot arrossegar si hi ha zoom actiu (scale > 1.0)
-      if (e.button === 0 && state.scale > 1.001) {
+    // Arrossegament (ratolí, dit o llapis): només amb zoom actiu (scale > 1.0).
+    // Sense zoom, en pantalles tàctils el dit fa scroll de la pàgina amb normalitat.
+    svgEl.addEventListener('pointerdown', (e) => {
+      if ((e.pointerType !== 'mouse' || e.button === 0) && state.scale > 1.001) {
         const ctm = svgEl.getScreenCTM();
         state.isDragging = true;
+        state.didDrag = false;
         state.startX = e.clientX;
         state.startY = e.clientY;
         state.startTx = state.tx;
@@ -615,23 +619,31 @@ const PsychroChart = (() => {
         // píxels de pantalla per unitat de viewBox (constant durant l'arrossegament)
         state.pxPerUnit = ctm ? ctm.a : 1;
         svgEl.style.cursor = 'grabbing';
+        if (svgEl.setPointerCapture) {
+          try { svgEl.setPointerCapture(e.pointerId); } catch (err) {}
+        }
       }
+    });
+
+    svgEl.addEventListener('pointermove', (e) => {
+      if (!state.isDragging || state.scale <= 1.001) return;
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) state.didDrag = true;
+      // El contingut segueix el cursor 1:1 (tx/ty s'expressen en unitats de viewBox × escala)
+      const k = state.scale / (state.pxPerUnit || 1);
+      state.tx = state.startTx + dx * k;
+      state.ty = state.startTy + dy * k;
+      applyViewBox(containerId);
     });
 
     svgEl.addEventListener('dblclick', () => {
       resetZoom(containerId);
     });
 
-    // Inspector psicromètric en temps real (mousemove)
-    svgEl.addEventListener('mousemove', (e) => {
-      if (state.isDragging && state.scale > 1.001) {
-        // El contingut segueix el cursor 1:1 (tx/ty s'expressen en unitats de viewBox × escala)
-        const k = state.scale / (state.pxPerUnit || 1);
-        state.tx = state.startTx + (e.clientX - state.startX) * k;
-        state.ty = state.startTy + (e.clientY - state.startY) * k;
-        applyViewBox(containerId);
-        return;
-      }
+    // Inspector psicromètric en temps real (mousemove; en pantalles tàctils, en tocar)
+    function onPointerInspect(e) {
+      if (state.isDragging) return;
 
       const p = clientToSvg(svgEl, e.clientX, e.clientY);
       if (!p) return;
@@ -689,6 +701,18 @@ const PsychroChart = (() => {
           `;
         }
       } catch (err) {}
+    }
+
+    svgEl.addEventListener('mousemove', onPointerInspect);
+    svgEl.addEventListener('click', (e) => {
+      // Un clic al final d'un arrossegament no és una inspecció
+      if (state.isDragging || state.didDrag) {
+        state.didDrag = false;
+        return;
+      }
+      onPointerInspect(e);
+      // Tocar fora d'un punt amaga el tooltip (en tàctil no hi ha mouseleave)
+      if (tooltip && !e.target.closest('.chart-interactive-point')) tooltip.style.display = 'none';
     });
 
     svgEl.addEventListener('mouseleave', () => {
@@ -702,7 +726,7 @@ const PsychroChart = (() => {
       const ptId = el.getAttribute('data-point-id');
       const pt = (sol && sol.points) ? sol.points[ptId] : null;
 
-      el.addEventListener('mouseenter', () => {
+      const showTooltip = () => {
         if (!pt || !tooltip) return;
         const rect = container.getBoundingClientRect();
         const client = svgToClient(svgEl, toX(pt.t), toY(pt.w_g_kg));
@@ -744,7 +768,10 @@ const PsychroChart = (() => {
         tooltip.style.display = 'block';
         tooltip.style.left = `${Math.min(rect.width - 200, Math.max(10, normX + 15))}px`;
         tooltip.style.top = `${Math.min(rect.height - 180, Math.max(10, normY - 40))}px`;
-      });
+      };
+
+      el.addEventListener('mouseenter', showTooltip);
+      el.addEventListener('click', showTooltip);
 
       el.addEventListener('mouseleave', () => {
         if (tooltip) tooltip.style.display = 'none';
@@ -792,10 +819,13 @@ const PsychroChart = (() => {
       state.ty = 0;
       svgEl.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
       svgEl.style.cursor = 'default';
+      svgEl.style.touchAction = 'auto';
       return;
     }
 
     svgEl.style.cursor = state.isDragging ? 'grabbing' : 'grab';
+    // Amb zoom, el gest d'un dit desplaça el diagrama en lloc de la pàgina
+    svgEl.style.touchAction = 'none';
 
     // Acota el desplaçament perquè mai surti del requadre
     const maxTx = ((state.scale - 1.0) * WIDTH) / 2;
