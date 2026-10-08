@@ -54,11 +54,11 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  padding: 24px;
+  padding: clamp(10px, 1.6vw, 24px);
 }
 
 .app-wrapper {
-  max-width: 1540px;
+  max-width: 1800px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -183,15 +183,21 @@ body {
    ============================================================ */
 .workspace-grid {
   display: grid;
-  grid-template-columns: 1.08fr 0.92fr;
+  /* minmax(0, …): les taules amples fan scroll dins la seva caixa en lloc d'eixamplar la pàgina */
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 
-@media (max-width: 1240px) {
-  .workspace-grid {
-    grid-template-columns: 1fr;
-  }
+.tables-panel,
+.chart-panel {
+  min-width: 0;
+}
+
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .card-box {
@@ -209,6 +215,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
 }
 
 .card-title-bar h2 {
@@ -279,6 +287,15 @@ body {
 
 .data-table td.text-center {
   text-align: center;
+}
+
+.data-table td.fixed-val {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.table-states .col-point {
+  width: 118px;
 }
 
 /* Capçaleres de colors de classe */
@@ -431,14 +448,8 @@ body {
 
 .subgrid-2 {
   display: grid;
-  grid-template-columns: 1.45fr 1fr;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   gap: 12px;
-}
-
-@media (max-width: 800px) {
-  .subgrid-2 {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Barra d'estat i acció */
@@ -543,6 +554,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
 }
 
 .chart-header h2 {
@@ -580,6 +593,7 @@ body {
 .chart-header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -629,6 +643,19 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   min-height: 26px;
+}
+
+.chart-inspector-bar:empty::before {
+  content: 'Passa el cursor pel diagrama per llegir-ne les propietats';
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-style: italic;
+}
+
+@media (hover: none) {
+  .chart-inspector-bar:empty::before {
+    content: 'Toca el diagrama per llegir-ne les propietats';
+  }
 }
 
 .inspector-hint {
@@ -715,7 +742,7 @@ body {
 /* Quick KPI tiles */
 .quick-kpi-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 8px;
 }
 
@@ -765,6 +792,8 @@ body {
   border-radius: var(--radius-md);
   padding: 10px 16px;
   box-shadow: var(--shadow-subtle);
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .debug-step-indicator {
@@ -822,15 +851,13 @@ body {
 
 .debugger-grid {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 
-@media (max-width: 1240px) {
-  .debugger-grid {
-    grid-template-columns: 1fr;
-  }
+.debugger-grid > * {
+  min-width: 0;
 }
 
 .debug-content-card {
@@ -869,6 +896,8 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xs);
   padding: 12px 16px;
+  /* Les equacions llargues fan scroll horitzontal dins la targeta */
+  overflow-x: auto;
 }
 
 .latex-card-title {
@@ -956,4 +985,289 @@ body {
 .fullscreen-chart-content svg {
   width: 100%;
   height: 100%;
+}
+
+/* ============================================================
+   DISSENY RESPONSIU
+   ============================================================ */
+.label-short {
+  display: none;
+}
+
+/* --- Escriptori: taules a l'esquerra, diagrama a la dreta --- */
+@media (min-width: 1180px) {
+  .workspace-grid {
+    /* La columna del diagrama s'ajusta a l'alçada de la pantalla perquè la carta hi càpiga sencera */
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(440px, min(calc((100vh - 290px) * 1.31 + 30px), 50%, 100% - 740px));
+  }
+
+  .chart-panel {
+    position: sticky;
+    top: 16px;
+  }
+
+  .debugger-grid {
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(420px, min(calc((100vh - 230px) * 1.31 + 30px), 50%));
+  }
+
+  .debugger-grid .chart-box {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+/* --- Portàtils: taules més compactes perquè hi càpiguen senceres al costat del diagrama --- */
+@media (min-width: 1180px) and (max-width: 1499px) {
+  .data-table th {
+    padding: 6px 5px;
+    font-size: 0.7rem;
+  }
+
+  .data-table td {
+    padding: 3px 4px;
+  }
+
+  .cell-input {
+    padding: 5px 5px;
+    font-size: 0.8rem;
+  }
+
+  .data-table td.text-left {
+    padding-left: 6px;
+  }
+
+  .point-header-cell {
+    padding: 3px 5px !important;
+  }
+
+  .table-states .col-point {
+    width: 104px;
+  }
+}
+
+/* --- Tauleta i mòbil: una sola columna --- */
+@media (max-width: 1179px) {
+  /* El diagrama no ha de ser més alt que la pantalla */
+  #psychro-container,
+  #debug-psychro-container {
+    max-width: max(320px, calc((100vh - 160px) * 1.31));
+    margin: 0 auto;
+  }
+}
+
+/* --- Mòbil --- */
+@media (max-width: 720px) {
+  .app-wrapper {
+    gap: 10px;
+  }
+
+  .top-navbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .brand-title h1 {
+    font-size: 1.05rem;
+  }
+
+  .view-tabs {
+    width: 100%;
+  }
+
+  .tab-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+  }
+
+  .tab-btn .label-long {
+    display: none;
+  }
+
+  .tab-btn .label-short {
+    display: inline;
+  }
+
+  .nav-actions .btn-secondary {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .card-box,
+  .chart-box,
+  .debug-content-card {
+    padding: 12px;
+  }
+
+  .hint-pill {
+    white-space: normal;
+  }
+
+  .subgrid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Taula d'estats: scroll horitzontal amb la columna "Punt" fixa */
+  .table-states th:first-child,
+  .table-states td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-shadow: 1px 0 0 var(--border-ui), 4px 0 6px -4px rgba(0, 0, 0, 0.18);
+  }
+
+  .table-states th:first-child {
+    background-color: #1f2937;
+  }
+
+  .table-states .col-point {
+    width: auto;
+    min-width: 96px;
+  }
+
+  /* Taules d'una sola fila: es reorganitzen en una graella capçalera/valor */
+  .table-reflow {
+    display: grid;
+    gap: 1px;
+    background-color: var(--border-ui);
+  }
+
+  .table-reflow thead,
+  .table-reflow tbody,
+  .table-reflow tr {
+    display: contents;
+  }
+
+  .table-reflow th,
+  .table-reflow td {
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .table-reflow th {
+    background-color: inherit;
+  }
+
+  .table-reflow td {
+    background-color: var(--bg-surface);
+    height: auto;
+    min-height: 38px;
+  }
+
+  .table-reflow td.calc-val {
+    background-color: #fafbfc;
+  }
+
+  .table-reflow td.calc-val.highlight {
+    background-color: var(--highlight-bg);
+  }
+
+  .table-reflow td.cell-wrap .cell-input {
+    text-align: center;
+  }
+
+  .table-powers .th-purple th {
+    background-color: #581c87;
+  }
+
+  .table-flows .th-gray th {
+    background-color: #374151;
+  }
+
+  /* 8 columnes → 2 files de 4 (capçalera a sobre del seu valor) */
+  .table-powers {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .table-powers th:nth-child(-n+4) { order: 1; }
+  .table-powers td:nth-child(-n+4) { order: 2; }
+  .table-powers th:nth-child(n+5) { order: 3; }
+  .table-powers td:nth-child(n+5) { order: 4; }
+
+  /* 4 columnes → 2 files de 2 */
+  .table-flows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .table-flows th:nth-child(-n+2) { order: 1; }
+  .table-flows td:nth-child(-n+2) { order: 2; }
+  .table-flows th:nth-child(n+3) { order: 3; }
+  .table-flows td:nth-child(n+3) { order: 4; }
+
+  .chart-header-actions .label-long {
+    display: none;
+  }
+
+  .quick-kpi-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .debugger-controls-bar {
+    padding: 10px 12px;
+  }
+
+  .debug-buttons-group {
+    width: 100%;
+  }
+
+  .btn-nav-step {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 6px;
+  }
+
+  .latex-card {
+    padding: 10px 12px;
+  }
+
+  .latex-card .katex-display {
+    font-size: 0.92em;
+  }
+
+  .fullscreen-modal {
+    padding: 0;
+  }
+
+  .fullscreen-modal-body {
+    width: 100vw;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .fullscreen-chart-content {
+    padding: 8px;
+  }
+}
+
+/* --- Pantalles tàctils: objectius més grans i sense zoom automàtic d'iOS en enfocar --- */
+@media (pointer: coarse) {
+  .cell-input {
+    font-size: 16px;
+  }
+
+  .btn-tool {
+    width: 34px;
+    height: 34px;
+  }
+
+  .btn-icon-text,
+  .btn-close-modal {
+    min-height: 34px;
+  }
+
+  .btn-clear-row {
+    font-size: 16px;
+    padding: 4px 8px;
+    opacity: 0.6;
+  }
 }

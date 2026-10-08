@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
     th: 'T humida'
   };
 
+  // Símbols curts per als distintius (el nom complet va al tooltip)
+  const PROP_SYMBOLS = { t: 'T', phi: 'φ', w: 'w', v: 'v', h: 'h', tr: 'Tr', th: 'Th' };
+
   // Estat del model
   const pointState = {
     v: {
@@ -139,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (state.activeProps.length === 2 && state.solved) {
       badge.className = 'prop-counter-pill ready';
       const labels = state.activeProps.map(p => PROP_NAMES[p]).join(' + ');
-      badge.textContent = `✓ [${labels}]`;
+      badge.textContent = `✓ ${state.activeProps.map(p => PROP_SYMBOLS[p]).join('·')}`;
       badge.title = `Estat definit per: ${labels}`;
     } else if (state.activeProps.length === 1) {
       badge.className = 'prop-counter-pill incomplete';

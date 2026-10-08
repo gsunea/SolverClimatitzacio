@@ -26,11 +26,11 @@
       <nav class="view-tabs">
         <button type="button" id="tab-table" class="tab-btn active">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-          Taula i Diagrama
+          <span class="label-long">Taula i Diagrama</span><span class="label-short">Taula</span>
         </button>
         <button type="button" id="tab-debugger" class="tab-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-          Resolució Pas a Pas
+          <span class="label-long">Resolució Pas a Pas</span><span class="label-short">Pas a pas</span>
         </button>
       </nav>
 
@@ -58,10 +58,10 @@
 
           <!-- 1. Taula Psicromètrica Principal -->
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table table-states">
               <thead>
                 <tr class="th-dark">
-                  <th class="text-left" style="width: 105px;">Punt</th>
+                  <th class="text-left col-point">Punt</th>
                   <th>T seca<br><small>ºC</small></th>
                   <th>H relativa<br><small>%</small></th>
                   <th>H abs<br><small>g/kg a.s.</small></th>
@@ -187,7 +187,7 @@
                   <td class="cell-wrap">
                     <input type="text" inputmode="decimal" id="cell-s-t" class="cell-input is-calc" placeholder="T_S">
                   </td>
-                  <td class="text-center" style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.82rem;">100,0%</td>
+                  <td class="text-center fixed-val">100,0%</td>
                   <td id="out-s-w" class="calc-val">—</td>
                   <td id="out-s-v" class="calc-val">—</td>
                   <td id="out-s-h" class="calc-val">—</td>
@@ -200,7 +200,7 @@
 
           <!-- 2. Taula de Potències (Lila) -->
           <div class="table-scroll">
-            <table class="data-table">
+            <table class="data-table table-reflow table-powers">
               <thead>
                 <tr class="th-purple">
                   <th>FBP<br><small>by-pass</small></th>
@@ -238,7 +238,7 @@
           <div class="subgrid-2">
             
             <div class="table-scroll">
-              <table class="data-table">
+              <table class="data-table table-reflow table-flows">
                 <thead>
                   <tr class="th-gray">
                     <th>Q_ventilació<br><small>m³/h</small></th>
@@ -263,7 +263,7 @@
             </div>
 
             <div class="table-scroll">
-              <table class="data-table">
+              <table class="data-table table-cond">
                 <thead>
                   <tr class="th-gray">
                     <th>m_condens<br><small>kg H₂O/h</small></th>
@@ -316,7 +316,7 @@
               </button>
               <button type="button" id="btn-fullscreen-chart" class="btn-icon-text" title="Ampliar a pantalla completa">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                Pantalla Completa
+                <span class="label-long">Pantalla Completa</span>
               </button>
             </div>
           </div>
@@ -400,7 +400,7 @@
             </div>
             <button type="button" id="btn-fullscreen-debug-chart" class="btn-icon-text" title="Ampliar a pantalla completa">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-              Pantalla Completa
+              <span class="label-long">Pantalla Completa</span>
             </button>
           </div>
           <div id="debug-psychro-container"></div>
