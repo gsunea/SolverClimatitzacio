@@ -6,7 +6,7 @@ Aplicació web lleugera, neta i interactiva per a la resolució i representació
 ### Taula d'estats
 
 - Per als punts de **Ventilació (V)** i **Retorn (R)** només cal entrar dues propietats qualssevol que siguin independents (per exemple T seca i HR, T seca i T humida, T seca i humitat absoluta...). Les altres cinc es calculen soles en el moment.
-- Els valors que entra l'usuari es veuen amb fons blanc i els calculats en blau, així es distingeix fàcilment què és dada i què és resultat. Cada fila té un petit indicador de quantes dades hi ha posades i un botó `×` per esborrar-la.
+- Els valors que entra l'usuari es veuen amb text negre i els calculats en text blau, així es distingeix fàcilment què és dada i què és resultat. Cada fila té un petit indicador de quantes dades hi ha posades i un botó `×` per esborrar-la.
 - Per a la **Impulsió (I)** es pot fixar la humitat relativa (per defecte 90%), la temperatura d'impulsió o el cabal total, segons el que doni l'enunciat.
 
 ### Potències i cabals

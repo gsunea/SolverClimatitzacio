@@ -1,0 +1,32 @@
+COM UTILITZAR EL SOLVER DE CLIMATITZADORS EN ESTIU
+==================================================
+
+1. COM ENTRAR
+-------------
+Opció A (la més fàcil): obrir aquesta adreça al navegador:
+
+   https://gsunea.github.io/SolverClimatitzacio
+
+Opció B (amb els arxius descarregats): fer doble clic a index.html
+i s'obrirà al navegador.
+
+
+2. QUÈ FER
+----------
+a) Omplir els punts de Ventilació (V) i Retorn (R).
+   A cada fila només cal posar DUES dades (per exemple T seca i HR).
+   La resta es calcula sola.
+   - Text negre = dades introduïdes.
+   - Blau = dades calculades.
+   - Per esborrar les dades d'una fila, clicar la "×".
+
+b) Posar la condició d'Impulsió (I)
+
+c) Consultar la taula de potències
+
+d) Consultar el diagrama psicromètric. Els processos es dibuixen sols.
+   Hi ha un botó per veure'l a pantalla completa.
+
+e) Per veure la resolució feta pas a pas, anar a la pestanya de
+   resolució pas a pas i avançar o retrocedir pels 7 passos.
+   A l'esquerra surten les equacions i a la dreta el diagrama.
