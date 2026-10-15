@@ -1,12 +1,12 @@
 # Solver de Climatitzadors en Estiu
 
-Aplicació web lleugera, neta i interactiva per a la resolució i representació psicromètrica de sistemes de climatització en estiu (100% *client-side*, Vanilla JavaScript, HTML5 i CSS3). Desplegable a **GitHub Pages**.
+Aplicació web lleugera, neta i interactiva per a la resolució i representació psicromètrica de sistemes de climatització en estiu, feta amb JavaScript, HTML5 i CSS3. Desplegable a **GitHub Pages**.
 
 ---
 
-## ⚡ Característiques
+## Característiques
 
-* **Taula interactiva tipus full de càlcul (Spreadsheet intel·ligent)**:
+* **Taula interactiva tipus full de càlcul**:
   * **Entrada lliure de 2 propietats per punt**: Introdueix qualsevol parella de propietats independents a **Ventilació ($V$)** o **Retorn ($R$)** (per exemple $H_{\text{abs}}$ i $\text{HR}$, $T_{\text{seca}}$ i $T_{\text{humida}}$, $T_{\text{seca}}$ i $H_{\text{abs}}$, etc.).
   * **Càlcul i autocompletat en temps real**: En introduir dues dades en una fila, les 5 propietats restants es calculen i omplen a l'instant.
   * **Distinció visual clara**: Les dades font introduïdes per l'usuari es mostren en fons blanc ressaltat, mentre que les dades deduïdes es mostren en blau càlcul amb indicadors d'estat (`[2/2]`, `✓ [w, φ]`) i botó de neteja ràpida (`×`).
@@ -28,7 +28,7 @@ Aplicació web lleugera, neta i interactiva per a la resolució i representació
 
 ---
 
-## 💻 Execució en Local
+## Execució en Local
 
 Obre directament `index.html` amb qualsevol navegador modern, o serveix el directori amb un servidor estàtic:
 
@@ -38,8 +38,6 @@ python -m http.server 8000
 
 ---
 
-## 🌐 Desplegament a GitHub Pages
-
-1. A GitHub, ves a **Settings** > **Pages**.
-2. A **Build and deployment**, tria la branca `main` i la carpeta `/ (root)`.
-3. Guarda els canvis.
+## Pàgina desplegada
+Com que s'ha estructurat el projecte només amb js, html i css, s'ha pogut desplegar el projecte a github pages. Aixi doncs, es pot utilitzar l'eina accedint a la pàgina, sense tindre els arxius descarregats localment.
+url: gsunea.github.io/SolverClimatitzacio

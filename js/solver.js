@@ -69,6 +69,36 @@ const ClimaSolver = (() => {
   }
 
   /**
+   * Cerca totes les arrels de F a [a, b] escanejant canvis de signe (pas `step`)
+   * i bisectant cada tram. Evita els problemes de la bisecció cega quan F no és
+   * monòtona, val 0 en un extrem o té valors sentinella.
+   */
+  function findRoots(F, a, b, step = 0.05) {
+    const roots = [];
+    let prev = a;
+    let fPrev = F(a);
+    if (fPrev === 0) roots.push(a);
+    for (let T = a + step; T <= b + 1e-9; T += step) {
+      const f = F(T);
+      if (Number.isFinite(f) && Number.isFinite(fPrev) && fPrev * f < 0) {
+        roots.push(bisect(F, prev, T));
+      }
+      prev = T;
+      fPrev = f;
+    }
+    return roots;
+  }
+
+  /**
+   * Temperatura màxima física (w >= 0) sobre una isoterma humida th constant.
+   */
+  function maxTAlongWetBulb(th, P, lib) {
+    let T = th;
+    while (T < th + 200 && lib.GetHumRatioFromTWetBulb(T + 0.05, th, P) > 1e-6) T += 0.05;
+    return T;
+  }
+
+  /**
    * Soluciona de forma analítica o per bisecció un estat psicromètric
    * a partir de 2 propietats independents qualssevol.
    * Propietats suportades a `props`:
@@ -187,8 +217,13 @@ const ClimaSolver = (() => {
         if (w > wSat + 1e-5) {
           throw inputError('Humitat absoluta incompatible amb la temperatura humida');
         }
-        // A th constant, w(T) decreix amb T
-        t_solved = bisect(mid => lib.GetHumRatioFromTWetBulb(mid, th, P) - w, th, 120.0);
+        if (Math.abs(w - wSat) <= 1e-9 + 1e-6 * wSat) {
+          // Estat saturat: T = th (l'arrel és just l'extrem de l'interval)
+          t_solved = th;
+        } else {
+          // A th constant, w(T) decreix amb T
+          t_solved = bisect(mid => lib.GetHumRatioFromTWetBulb(mid, th, P) - w, th, maxTAlongWetBulb(th, P, lib));
+        }
       }
       // Parell: (w, v)
       else if (w !== null && v !== null) {
@@ -206,7 +241,11 @@ const ClimaSolver = (() => {
       }
       // Parell: (phi, th)
       else if (phi !== null && th !== null) {
-        t_solved = bisect(mid => lib.GetRelHumFromTWetBulb(mid, th, P) * 100.0 - phi, th, 120.0);
+        if (phi >= 100 - 1e-9) {
+          t_solved = th; // φ = 100% implica T = th
+        } else {
+          t_solved = bisect(mid => lib.GetRelHumFromTWetBulb(mid, th, P) * 100.0 - phi, th, 120.0);
+        }
         w_solved = lib.GetHumRatioFromTWetBulb(t_solved, th, P);
       }
       // Parell: (phi, v)
@@ -219,14 +258,31 @@ const ClimaSolver = (() => {
       }
       // Parell: (h, th)
       else if (h !== null && th !== null) {
-        // Les isentàlpiques i les isotermes humides són gairebé paral·leles: problema mal condicionat
-        t_solved = bisect(mid => {
-          const w_calc = (h - c_pas * mid) / (dh_lg + 1.86 * mid);
-          if (w_calc <= 0) return 1;
-          return lib.GetTWetBulbFromHumRatio(mid, w_calc, P) - th;
-        }, th, 120.0);
+        // Sobre una isoterma humida h varia molt poc amb T: problema mal condicionat.
+        // Es cerquen les arrels de h(T) - h al tram físic [th, T(w=0)] per escaneig.
+        const Fh = T => lib.GetMoistAirEnthalpy(T, lib.GetHumRatioFromTWetBulb(T, th, P)) / 1000.0 - h;
+        if (Math.abs(Fh(th)) < 1e-3) {
+          t_solved = th;
+        } else {
+          const rts = findRoots(Fh, th, maxTAlongWetBulb(th, P, lib));
+          if (rts.length === 0) {
+            throw inputError('Entalpia i temperatura humida incompatibles (no defineixen cap estat sobre la carta).');
+          }
+          t_solved = rts[0];
+          if (rts.length > 1) warning = 'h i T_h admeten més d\'una solució; es mostra la de menor T.';
+        }
         w_solved = (h - c_pas * t_solved) / (dh_lg + 1.86 * t_solved);
-        warning = 'Entalpia i temperatura humida són gairebé dependents: un petit error en T_h canvia molt l\'estat. Millor fer servir una altra parella.';
+        warning = (warning ? warning + ' ' : '') + 'Entalpia i temperatura humida són gairebé dependents: un petit error en T_h canvia molt l\'estat. Millor fer servir una altra parella.';
+      }
+      // Parell: (th, v)
+      else if (th !== null && v !== null) {
+        const Fv = T => lib.GetMoistAirVolume(T, lib.GetHumRatioFromTWetBulb(T, th, P), P) - v;
+        const rts = findRoots(Fv, th, maxTAlongWetBulb(th, P, lib));
+        if (rts.length === 0) {
+          throw inputError('Temperatura humida i volum específic incompatibles (no defineixen cap estat sobre la carta).');
+        }
+        t_solved = rts[0];
+        w_solved = lib.GetHumRatioFromTWetBulb(t_solved, th, P);
       }
       // Parell: (h, v)
       else if (h !== null && v !== null) {
@@ -309,7 +365,7 @@ const ClimaSolver = (() => {
   /**
    * Soluciona el sistema complet de climatitzador en estiu
    */
-  function solve(inputs) {
+  function solveCore(inputs) {
     const lib = getPsychroLib();
     const altitude = toNum(inputs.altitude) || 0;
     const P = lib.GetStandardAtmPressure(altitude); // en Pa
@@ -500,93 +556,279 @@ const ClimaSolver = (() => {
       pointI = pointOnRoomLine(TI);
     }
 
-    // 8. Balanç de cabals d'impulsió i retorn
-    // Balanç d'entalpia a la sala: q_sala = m_dot_I * (h_R - h_I)
-    let deltaH_IR = pointR.h - pointI.h;
-    if (!(deltaH_IR > 1e-9)) {
-      throw new Error('L\'entalpia d\'impulsió ha de ser inferior a la de retorn per absorbir la càrrega de la sala.');
-    }
-    let m_dot_I = q_room / deltaH_IR;
-
-    // Si la ventilació necessària supera el cabal d'impulsió, el sistema treballa amb 100% aire exterior:
-    // m_dot_I = m_dot_v i el punt I queda determinat pel balanç de la sala.
-    let allOutdoorAir = false;
-    if (m_dot_v > m_dot_I * (1 + 1e-9)) {
-      if (impulseMode === 'Q_I') {
-        throw new Error('El cabal d\'impulsió fixat és inferior al cabal de ventilació que passa per la bateria.');
+    /**
+     * Passos 8-10: a partir d'un punt d'impulsió I (sobre la recta de maniobra) calcula
+     * cabals màssics, mescla M i superfície de bateria S.
+     * opts.strict: cerca cap enrere (retorna null si l'estat no és vàlid, sense 100% aire exterior).
+     */
+    function evaluate(pointIin, opts = {}) {
+      let pointI = pointIin;
+      const localWarnings = [];
+      // 8. Balanç de cabals d'impulsió i retorn
+      // Balanç d'entalpia a la sala: q_sala = m_dot_I * (h_R - h_I)
+      let deltaH_IR = pointR.h - pointI.h;
+      if (!(deltaH_IR > 1e-9)) {
+        if (opts.strict) return null;
+        throw new Error('L\'entalpia d\'impulsió ha de ser inferior a la de retorn per absorbir la càrrega de la sala.');
       }
-      allOutdoorAir = true;
-      m_dot_I = m_dot_v;
-      const hI_target = pointR.h - q_room / m_dot_I;
-      const TI = bisect(T => pointOnRoomLine(T).h - hI_target, T_lim, pointR.t);
-      pointI = pointOnRoomLine(TI);
-      deltaH_IR = pointR.h - pointI.h;
-      warnings.push('El cabal de ventilació supera el d\'impulsió necessari: sistema amb 100% d\'aire exterior (sense recirculació). La condició d\'impulsió fixada no es manté.');
-    }
-    const Q_I = m_dot_I * pointI.v * 3600.0;
+      let m_dot_I = q_room / deltaH_IR;
+      const m_dot_I_balance = m_dot_I; // cabal que surt del balanç de la sala (abans de limitar per ventilació)
 
-    // Retorn recirculat a climatitzador
-    const m_dot_R = allOutdoorAir ? 0 : m_dot_I - m_dot_v;
-    const Q_R = m_dot_R * pointR.v * 3600.0;
+      // Si la ventilació necessària supera el cabal d'impulsió, el sistema treballa amb 100% aire exterior:
+      // m_dot_I = m_dot_v i el punt I queda determinat pel balanç de la sala.
+      let allOutdoorAir = false;
+      if (m_dot_v > m_dot_I * (1 + 1e-9)) {
+        if (opts.strict) return null; // en la cerca cap enrere no es permet 100% aire exterior
+        allOutdoorAir = true;
+        m_dot_I = m_dot_v;
+        const hI_target = pointR.h - q_room / m_dot_I;
+        const TI = bisect(T => pointOnRoomLine(T).h - hI_target, T_lim, pointR.t);
+        pointI = pointOnRoomLine(TI);
+        deltaH_IR = pointR.h - pointI.h;
+        localWarnings.push('El cabal de ventilació supera el d\'impulsió necessari: ṁ_I = ṁ_v i ṁ_R = 0 (100% aire exterior, sense recirculació). La condició d\'impulsió fixada no es manté.');
+      }
+      const Q_I = m_dot_I * pointI.v * 3600.0;
 
-    // 9. Punt de Mescla (M)
-    const m_dot_M = m_dot_I;
-    let pointM;
-    if (m_dot_R === 0) {
-      pointM = { ...pointV };
-    } else if (m_dot_v === 0) {
-      pointM = { ...pointR };
-    } else {
-      const w_M = (m_dot_v * pointV.w + m_dot_R * pointR.w) / m_dot_M;
-      const h_M = (m_dot_v * pointV.h + m_dot_R * pointR.h) / m_dot_M;
-      const T_M = lib.GetTDryBulbFromEnthalpyAndHumRatio(h_M * 1000.0, w_M);
-      pointM = solvePointFromProperties({ t: T_M, w: w_M }, P, lib);
-    }
-    const Q_M = m_dot_M * pointM.v * 3600.0;
+      // Retorn recirculat a climatitzador
+      const m_dot_R = (allOutdoorAir || m_dot_I - m_dot_v < 1e-12) ? 0 : m_dot_I - m_dot_v; // mai negatiu
+      const Q_R = m_dot_R * pointR.v * 3600.0;
 
-    if (pointM.w < pointI.w - 1e-7) {
-      throw new Error('La humitat de la mescla és inferior a la d\'impulsió: una bateria de fred no pot humidificar l\'aire.');
-    }
-    if (pointM.t < pointI.t - 1e-6) {
-      throw new Error('La mescla és més freda que la impulsió: no cal bateria de fred (dades incoherents per a estiu).');
-    }
-
-    // 10. Punt de Superfície de Bateria (S)
-    const deltaT_MI = pointM.t - pointI.t;
-    const deltaW_MI = pointM.w - pointI.w;
-    const coilVertical = Math.abs(deltaT_MI) < 1e-6;
-    const slopeMI = coilVertical ? 0 : deltaW_MI / deltaT_MI;
-
-    function getWOnCoilLine(T) {
-      return pointI.w - slopeMI * (pointI.t - T);
-    }
-
-    let TS = toNum(inputs.target_TS);
-    if (TS === null) {
-      const g = (T) => getWOnCoilLine(T) - lib.GetSatHumRatio(T, P);
-      if (coilVertical || g(pointI.t) >= -1e-9) {
-        // Impulsió saturada o procés de bateria sense variació de T: S coincideix en T amb I
-        TS = pointI.t;
+      // 9. Punt de Mescla (M)
+      const m_dot_M = m_dot_I;
+      let pointM;
+      let w_M_total = null; // humitat total de la mescla (inclou l'aigua de boira)
+      if (m_dot_R === 0) {
+        pointM = { ...pointV };
+      } else if (m_dot_v === 0) {
+        pointM = { ...pointR };
       } else {
-        let prev = pointI.t;
-        let found = false;
-        for (let T = pointI.t - 0.25; T >= -60; T -= 0.25) {
-          if (getWOnCoilLine(T) <= 0) break;
-          if (g(T) >= 0) {
-            TS = bisect(g, T, prev);
-            found = true;
-            break;
-          }
-          prev = T;
-        }
-        if (!found) {
-          TS = null;
-          warnings.push('La prolongació de la recta de bateria M–I no talla la corba de saturació: amb una sola bateria no hi ha punt de superfície (S) ni factor de bypass (caldria postescalfament).');
+        const w_M = (m_dot_v * pointV.w + m_dot_R * pointR.w) / m_dot_M;
+        const h_M = (m_dot_v * pointV.h + m_dot_R * pointR.h) / m_dot_M;
+        const T_M = lib.GetTDryBulbFromEnthalpyAndHumRatio(h_M * 1000.0, w_M);
+        if (w_M > lib.GetSatHumRatio(T_M, P) * (1 + 1e-6) + 1e-9) {
+          // Mescla dins la zona de boira: l'aigua sobrant condensa i l'aire queda saturat
+          // a la mateixa entalpia (es negligeix l'entalpia de l'aigua líquida).
+          const Tf = bisect(T => lib.GetMoistAirEnthalpy(T, lib.GetSatHumRatio(T, P)) / 1000.0 - h_M, -50.0, T_M);
+          pointM = solvePointFromProperties({ t: Tf, phi: 100.0 }, P, lib);
+          pointM.warning = 'La mescla V–R cau a la zona de boira (sobresaturada): M es mostra saturat a la mateixa entalpia; l\'aigua de la boira es compta als condensats.';
+          w_M_total = w_M;
+        } else {
+          pointM = solvePointFromProperties({ t: T_M, w: w_M }, P, lib);
         }
       }
-    }
-    const pointS = TS !== null ? solvePointFromProperties({ t: TS, phi: 100.0 }, P, lib) : null;
+      const Q_M = m_dot_M * pointM.v * 3600.0;
+      if (w_M_total === null) w_M_total = pointM.w;
 
+      if (w_M_total < pointI.w - 1e-7) {
+        if (opts.strict) return null;
+        throw new Error('La humitat de la mescla és inferior a la d\'impulsió: una bateria de fred no pot humidificar l\'aire.');
+      }
+      if (pointM.t < pointI.t - 1e-6) {
+        if (opts.strict) return null;
+        throw new Error('La mescla és més freda que la impulsió: no cal bateria de fred (dades incoherents per a estiu).');
+      }
+
+      // 10. Punt de Superfície de Bateria (S)
+      const deltaT_MI = pointM.t - pointI.t;
+      const deltaW_MI = pointM.w - pointI.w;
+      const coilVertical = Math.abs(deltaT_MI) < 1e-6;
+      const slopeMI = coilVertical ? 0 : deltaW_MI / deltaT_MI;
+
+      function getWOnCoilLine(T) {
+        return pointI.w - slopeMI * (pointI.t - T);
+      }
+
+      let TS = null;
+      {
+        const g = (T) => getWOnCoilLine(T) - lib.GetSatHumRatio(T, P);
+        if (coilVertical || g(pointI.t) >= -1e-9) {
+          // Impulsió saturada o procés de bateria sense variació de T: S coincideix en T amb I
+          TS = pointI.t;
+        } else {
+          let prev = pointI.t;
+          let found = false;
+          for (let T = pointI.t - 0.25; T >= -60; T -= 0.25) {
+            if (getWOnCoilLine(T) <= 0) break;
+            if (g(T) >= 0) {
+              TS = bisect(g, T, prev);
+              found = true;
+              break;
+            }
+            prev = T;
+          }
+          if (!found) {
+            TS = null;
+            localWarnings.push('La prolongació de la recta de bateria M–I no talla la corba de saturació: amb una sola bateria no hi ha punt de superfície (S) ni factor de bypass (caldria postescalfament).');
+          }
+        }
+      }
+      const pointS = TS !== null ? solvePointFromProperties({ t: TS, phi: 100.0 }, P, lib) : null;
+
+
+      return {
+        pointI, m_dot_I, m_dot_I_balance, allOutdoorAir, Q_I, m_dot_R, Q_R, m_dot_M,
+        pointM, Q_M, w_M_total, pointS, TS, slopeMI, localWarnings
+      };
+    }
+
+    // Càlcul directe (sense restricció de temperatura de bateria)
+    let res = evaluate(pointI);
+
+    // 10b. Temperatura de la bateria (T_bat = T_S, superfície de bateria) i viabilitat.
+    //  T_bat > TS_WARN: viable · TS_MIN ≤ T_bat ≤ TS_WARN: compte · T_bat < TS_MIN: no viable.
+    //  Si T_bat < TS_MIN (o l'usuari fixa T_S) es fixa T_S i es "torna enrere": es cerca la impulsió
+    //  I sobre la recta de maniobra per a la qual la bateria treballa exactament a T_S (el cabal d'impulsió,
+    //  la mescla M i la recta M–I s'han de recalcular de forma consistent).
+    const TS_MIN = toNum(inputs.TS_min) !== null ? toNum(inputs.TS_min) : 7.0;
+    const TS_WARN = toNum(inputs.TS_warn) !== null ? toNum(inputs.TS_warn) : 9.0;
+    const TS_EPS = 0.05; // tolerància (°C): 6,96 °C es mostra com 7,0 °C i no es tracta com a inferior al límit
+    const fixMinTS = inputs.fix_min_TS !== false;
+    const manualTS = toNum(inputs.target_TS);
+    const TS_natural = res.TS;
+    const naturalState = {
+      T_S: TS_natural,
+      T_I: res.pointI.t,
+      phi_I: res.pointI.phi,
+      m_dot_I: res.m_dot_I,
+      Q_I: res.Q_I
+    };
+
+    const naturalRec = {
+      T_I: res.pointI.t, phi_I: res.pointI.phi, m_I: res.m_dot_I, m_R: res.m_dot_R,
+      T_M: res.pointM.t, T_S: TS_natural === null ? Infinity : TS_natural
+    };
+    naturalState.allOutdoorAir = res.allOutdoorAir;
+    naturalState.m_dot_I_balance = res.m_dot_I_balance;
+    let recalcTrace = null;
+
+    let TS_target = null;
+    let TS_reason = null;
+    if (manualTS !== null) {
+      TS_target = manualTS;
+      TS_reason = 'manual';
+    } else if (fixMinTS && TS_natural !== null && TS_natural < TS_MIN - TS_EPS) {
+      TS_target = TS_MIN;
+      TS_reason = 'min';
+    }
+
+    let coilCorrected = false;
+    let coilUnresolved = false;
+    let forcedS = false;
+    if (TS_target !== null && !(TS_natural !== null && Math.abs(TS_natural - TS_target) < 1e-6)) {
+      // T_S com a funció de T_I (null = estat no vàlid; Infinity = la recta M–I no talla la saturació)
+      // Registre d'un tempteig: estat complet associat a una T_I sobre la recta de maniobra
+      const recOf = (T) => {
+        try {
+          const r = evaluate(pointOnRoomLine(T), { strict: true });
+          if (!r) return null;
+          return {
+            T_I: r.pointI.t, phi_I: r.pointI.phi, m_I: r.m_dot_I, m_R: r.m_dot_R,
+            T_M: r.pointM.t, T_S: r.TS === null ? Infinity : r.TS
+          };
+        } catch (e) {
+          return null;
+        }
+      };
+      const gT = (T) => {
+        const r = recOf(T);
+        return r === null ? NaN : r.T_S - TS_target;
+      };
+      // Escaneig de tota la recta de maniobra vàlida; s'escull l'arrel més propera a la impulsió original
+      const roots = [];
+      const rows = [];
+      const step = 0.1;
+      const T0 = Math.max(T_lim, naturalState.T_I - 40);
+      let prevT = null;
+      let prevG = NaN;
+      for (let T = T0; T < pointR.t - 1e-6; T += step) {
+        const g = gT(T);
+        rows.push({ T, g });
+        if (prevT !== null && !Number.isNaN(prevG) && !Number.isNaN(g)) {
+          if ((prevG < 0) !== (g < 0)) {
+            const fSafe = x => { const v = gT(x); return Number.isNaN(v) ? (prevG < 0 ? -1 : 1) : v; };
+            const Tr = bisect(fSafe, prevT, T);
+            if (Math.abs(gT(Tr)) < 1e-4) roots.push({ T: Tr, lo: prevT, hi: T, gLo: prevG });
+          }
+        }
+        prevT = T;
+        prevG = g;
+      }
+      if (roots.length) {
+        roots.sort((x, y) => Math.abs(x.T - naturalState.T_I) - Math.abs(y.T - naturalState.T_I));
+        const chosen = roots[0];
+
+        // Traça del procediment (per mostrar-la al pas a pas): estat inicial, tempteigs de l'escaneig,
+        // interval que conté l'arrel, primeres iteracions de la bisecció i solució final
+        const trials = [];
+        trials.push({ label: 'inicial', ...naturalRec });
+        const bLo = Math.min(naturalState.T_I, chosen.lo);
+        const bHi = Math.max(naturalState.T_I, chosen.lo);
+        const between = rows.filter(r => !Number.isNaN(r.g) && r.T > bLo + 0.2 && r.T < bHi - 0.2)
+          .sort((x, y) => Math.abs(x.T - naturalState.T_I) - Math.abs(y.T - naturalState.T_I));
+        [0.25, 0.5, 0.75].forEach(f => {
+          if (between.length >= 3) {
+            const r = between[Math.min(between.length - 1, Math.floor(f * between.length))];
+            const rec = recOf(r.T);
+            if (rec && !trials.some(t => Math.abs(t.T_I - rec.T_I) < 1e-9)) trials.push({ label: 'tempteig', ...rec });
+          }
+        });
+        const recLo = recOf(chosen.lo);
+        const recHi = recOf(chosen.hi);
+        if (recLo) trials.push({ label: recLo.T_S < TS_target ? 'interval baix' : 'interval alt', ...recLo });
+        if (recHi) trials.push({ label: recHi.T_S < TS_target ? 'interval baix' : 'interval alt', ...recHi });
+        let lo = chosen.lo;
+        let hi = chosen.hi;
+        let gLo = chosen.gLo;
+        for (let it = 1; it <= 24; it++) {
+          const mid = (lo + hi) / 2.0;
+          const gm = gT(mid);
+          const gmSafe = Number.isNaN(gm) ? (gLo < 0 ? -1 : 1) : gm;
+          if (it <= 4) {
+            const rec = recOf(mid);
+            if (rec) trials.push({ label: `bisecció ${it}`, ...rec });
+          }
+          if ((gmSafe >= 0) === (gLo >= 0)) { lo = mid; gLo = gmSafe; } else { hi = mid; }
+        }
+        const finalRec = recOf(chosen.T);
+        if (finalRec) trials.push({ label: 'solució', ...finalRec });
+        recalcTrace = {
+          target: TS_target,
+          reason: TS_reason,
+          trials,
+          iterations: roots.length,
+          bracket: [chosen.lo, chosen.hi]
+        };
+
+        res = evaluate(pointOnRoomLine(chosen.T));
+        coilCorrected = true;
+      } else {
+        // El recàlcul s'ha intentat però cap T_I dóna T_S = objectiu: es guarda el marge de T_S explorat
+        const finite = rows.filter(r => !Number.isNaN(r.g) && Number.isFinite(r.g)).map(r => r.g + TS_target);
+        const withInf = rows.some(r => r.g === Infinity);
+        recalcTrace = {
+          failed: true,
+          target: TS_target,
+          reason: TS_reason,
+          trials: [],
+          T_S_min: finite.length ? Math.min(...finite) : null,
+          T_S_max: finite.length ? Math.max(...finite) : null,
+          T_I_min: rows.length ? rows[0].T : null,
+          T_I_max: rows.length ? rows[rows.length - 1].T : null,
+          samples: finite.length,
+          noSaturation: withInf
+        };
+        if (TS_reason === 'manual') {
+          // Cap impulsió coherent: es força S a la T_S indicada sense recalcular la resta del procés
+          forcedS = true;
+        }
+        coilUnresolved = true;
+      }
+    }
+
+    pointI = res.pointI;
+    const { m_dot_I, m_dot_I_balance, allOutdoorAir, Q_I, m_dot_R, Q_R, m_dot_M, pointM, Q_M, w_M_total, slopeMI } = res;
+    const pointS = forcedS ? solvePointFromProperties({ t: TS_target, phi: 100.0 }, P, lib) : res.pointS;
+    res.localWarnings.forEach(w => warnings.push(w));
     // 11. Factor de Bypass (FBP)
     let fbp_h = null;
     let FBP = null;
@@ -597,11 +839,55 @@ const ClimaSolver = (() => {
     }
 
     // 12. Condensats i Potència de Bateria
-    const m_dot_cond = Math.max(0, m_dot_I * (pointM.w - pointI.w)); // kg/s
+    const m_dot_cond = Math.max(0, m_dot_I * (w_M_total - pointI.w)); // kg/s
     const M_cond_h = m_dot_cond * 3600.0; // kg/h
     const q_bateria = m_dot_I * (pointM.h - pointI.h); // kW
 
-    [pointV, pointR].forEach(pt => { if (pt.warning) warnings.push(pt.warning); });
+    // Viabilitat de la temperatura de bateria
+    const T_bat = pointS ? pointS.t : null;
+    const fT = (x) => x.toFixed(1);
+    const f2 = (x) => x.toFixed(2);
+    let coilStatus;
+    let coilMessage;
+    if (T_bat === null) {
+      coilStatus = 'sense_S';
+      coilMessage = 'No es pot determinar la temperatura de la bateria: la recta M–I no talla la corba de saturació.';
+    } else if (T_bat < TS_MIN - TS_EPS) {
+      coilStatus = 'no_viable';
+      coilMessage = `T_bat = ${fT(T_bat)} °C < ${TS_MIN} °C: la instal·lació NO és viable (risc de gelada a la bateria). Cal solucionar-ho: fixar T_bat ≥ ${TS_MIN} °C i recalcular la impulsió.`;
+    } else if (T_bat <= TS_WARN + TS_EPS) {
+      coilStatus = 'ojo';
+      coilMessage = `Compte: T_bat = ${fT(T_bat)} °C, entre ${TS_MIN} i ${TS_WARN} °C (zona límit de la bateria).`;
+    } else {
+      coilStatus = 'viable';
+      coilMessage = `T_bat = ${fT(T_bat)} °C > ${TS_WARN} °C: la bateria és viable.`;
+    }
+    if (coilCorrected) {
+      const why = TS_reason === 'min'
+        ? `La T_bat resultant era ${f2(TS_natural)} °C (< ${TS_MIN} °C): s'ha fixat a ${TS_MIN} °C`
+        : `T_bat fixada manualment a ${fT(TS_target)} °C`;
+      coilMessage += ` ${why} i s'ha recalculat el procés cap enrere: T_I ${fT(naturalState.T_I)} → ${fT(pointI.t)} °C, φ_I ${fT(naturalState.phi_I)} → ${fT(pointI.phi)} %, Q_I ${naturalState.Q_I.toFixed(0)} → ${Q_I.toFixed(0)} m³/h.`;
+      warnings.push(`Impulsió recalculada perquè la bateria no baixi de ${fT(TS_target)} °C (T_I = ${fT(pointI.t)} °C, φ_I = ${fT(pointI.phi)} %). La condició d'impulsió fixada no es manté.`);
+    } else if (forcedS) {
+      coilMessage += ` No existeix cap impulsió coherent amb T_bat = ${fT(TS_target)} °C: S s'ha forçat a aquesta temperatura sense recalcular la resta del procés.`;
+      warnings.push(`T_S forçada a ${fT(TS_target)} °C sense impulsió coherent (només es mou el punt S).`);
+    } else if (coilUnresolved) {
+      coilMessage += ' No s\'ha trobat cap impulsió sobre la recta de maniobra que permeti T_bat ≥ ' + TS_MIN + ' °C amb aquests cabals i càrregues; cal revisar el cabal de ventilació, les condicions de V i R o les càrregues.';
+      warnings.push(`No s'ha pogut fixar la temperatura de la bateria a ${TS_MIN} °C amb aquestes dades.`);
+    }
+    const coil = {
+      T: T_bat,
+      status: coilStatus,
+      message: coilMessage,
+      limits: { min: TS_MIN, warn: TS_WARN },
+      corrected: coilCorrected,
+      unresolved: coilUnresolved,
+      reason: TS_reason,
+      natural: coilCorrected ? naturalState : null,
+      recalc: recalcTrace
+    };
+
+    [pointV, pointR, pointM].forEach(pt => { if (pt.warning) warnings.push(pt.warning); });
 
     return {
       points: {
@@ -632,6 +918,10 @@ const ClimaSolver = (() => {
         m_dot_v_total,
         m_dot_v_coil: allOutdoorAir ? m_dot_I : m_dot_v,
         m_dot_v_infil,
+        m_dot_I,
+        m_dot_R,
+        m_dot_I_balance,
+        T_bat,
         q_bateria,
         FBP,
         FBP_h: fbp_h,
@@ -644,8 +934,21 @@ const ClimaSolver = (() => {
       slopeMI,
       impulseMode,
       allOutdoorAir,
+      coil,
       warnings
     };
+  }
+
+  // Resol amb correcció de T_bat; si s'ha hagut de fixar T_S = 7 °C, adjunta també
+  // la solució "natural" (sense fixar) perquè els passos 1-7 mostrin el càlcul normal.
+  function solve(inputs) {
+    const res = solveCore(inputs);
+    if (res.coil && res.coil.corrected && res.coil.reason === 'min') {
+      try {
+        res.naturalSolution = solveCore({ ...inputs, fix_min_TS: false });
+      } catch (e) { res.naturalSolution = null; }
+    }
+    return res;
   }
 
   return {

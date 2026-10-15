@@ -1271,3 +1271,44 @@ body {
     opacity: 0.6;
   }
 }
+
+
+/* ===== Temperatura de la bateria i viabilitat ===== */
+.coil-status {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-ui);
+  background-color: var(--bg-subtle);
+  font-size: 0.8rem;
+}
+.coil-status-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.coil-status-title { font-weight: 600; }
+.coil-status-temp { font-family: var(--font-mono); font-weight: 700; font-size: 0.95rem; }
+.coil-status-msg { line-height: 1.4; }
+.coil-status.viable   { background-color: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.coil-status.ojo      { background-color: #fffbeb; border-color: #fde68a; color: #92400e; }
+.coil-status.no_viable{ background-color: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.coil-status.sense_S  { background-color: var(--bg-subtle); border-color: var(--border-ui); color: var(--text-secondary); }
+.coil-fix-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.kpi-tile.viable    .value { color: #059669; }
+.kpi-tile.ojo       .value { color: #d97706; }
+.kpi-tile.no_viable .value { color: #dc2626; }
+
+/* Equacions LaTeX àmplies (p. ex. taula de recàlcul del pas 8): desplaçament horitzontal en lloc de tallar-les */
+.latex-card { overflow-x: auto; }
+.latex-card .katex-display { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
