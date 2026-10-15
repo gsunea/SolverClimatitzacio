@@ -331,6 +331,62 @@ const PsychroChart = (() => {
         svg += `<line x1="${toX(V.t)}" y1="${toY(V.w_g_kg)}" x2="${toX(R.t)}" y2="${toY(R.w_g_kg)}" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4" ${markerAttr} ${clip}/>`;
       }
 
+      // Recàlcul cap enrere (T_S fixada): es dibuixa en gris el procés "natural" inicial (no viable)
+      // i a sobre, en color, el procés desplaçat que acaba a T_S = 7 °C.
+      const ghost = (maxStep >= 7 && sol.naturalSolution && sol.naturalSolution.points) ? sol.naturalSolution.points : null;
+      if (ghost && ghost.M && ghost.I) {
+        const g = '#94a3b8';
+        svg += `<line x1="${toX(ghost.M.t)}" y1="${toY(ghost.M.w_g_kg)}" x2="${toX(ghost.I.t)}" y2="${toY(ghost.I.w_g_kg)}" stroke="${g}" stroke-width="2.5" stroke-dasharray="7,4" ${clip}/>`;
+        if (ghost.S) {
+          svg += `<line x1="${toX(ghost.I.t)}" y1="${toY(ghost.I.w_g_kg)}" x2="${toX(ghost.S.t)}" y2="${toY(ghost.S.w_g_kg)}" stroke="${g}" stroke-width="1.8" stroke-dasharray="2,3" ${clip}/>`;
+        }
+        svg += `<g ${clip}>`;
+        [['M₀', ghost.M, -12, -12, 'end'], ['I₀', ghost.I, 12, 16, 'start'], ['S₀', ghost.S, 12, 16, 'start']].forEach(([n, p, dx, dy, an]) => {
+          if (!p) return;
+          const x = toX(p.t), y = toY(p.w_g_kg);
+          svg += `<circle cx="${x}" cy="${y}" r="5" fill="#ffffff" stroke="${g}" stroke-width="2.2"/>`;
+          svg += `<text x="${x + dx}" y="${y + dy}" font-size="10.5" font-weight="700" fill="#64748b" text-anchor="${an}" font-family="var(--font-mono), monospace">${n}</text>`;
+        });
+        svg += `</g>`;
+      }
+
+      // Detall ampliat de la zona I–S: mostra com el procés es desplaça fins que T_S = 7 °C
+      if (ghost && ghost.I && ghost.S && I && S && M && ghost.M) {
+        const IW = 270, IH = 205;
+        const ix = MARGIN.left + PLOT_W - IW - 10, iy = MARGIN.top + PLOT_H - IH - 10;
+        const ts = [ghost.I.t, ghost.S.t, I.t, S.t], ws = [ghost.I.w_g_kg, ghost.S.w_g_kg, I.w_g_kg, S.w_g_kg];
+        let T0 = Math.min(...ts), T1 = Math.max(...ts), W0 = Math.min(...ws), W1 = Math.max(...ws);
+        const padT = Math.max(1.2, (T1 - T0) * 0.45), padW = Math.max(0.35, (W1 - W0) * 0.45);
+        T0 -= padT; T1 += padT; W0 -= padW; W1 += padW;
+        const lx = T => ix + ((T - T0) / (T1 - T0)) * IW;
+        const ly = w => iy + IH - ((w - W0) / (W1 - W0)) * IH;
+        const clipId = `${ids.clip}-inset`;
+        const seg = (A, B, col, wd, dash) => `<line x1="${lx(A.t)}" y1="${ly(A.w_g_kg)}" x2="${lx(B.t)}" y2="${ly(B.w_g_kg)}" stroke="${col}" stroke-width="${wd}" ${dash ? `stroke-dasharray="${dash}"` : ''} clip-path="url(#${clipId})"/>`;
+        svg += `<g class="chart-inset"><defs><clipPath id="${clipId}"><rect x="${ix}" y="${iy}" width="${IW}" height="${IH}"/></clipPath></defs>`;
+        svg += `<rect x="${ix - 4}" y="${iy - 22}" width="${IW + 8}" height="${IH + 42}" fill="#ffffff" stroke="#94a3b8" rx="5" opacity="0.98"/>`;
+        svg += `<text x="${ix}" y="${iy - 8}" font-size="10.5" font-weight="700" fill="#334155" font-family="var(--font-sans), sans-serif">Detall: el procés es desplaça fins a T_S = 7 °C</text>`;
+        // corba de saturació
+        let d = '';
+        for (let k = 0; k <= 40; k++) {
+          const T = T0 + (T1 - T0) * k / 40;
+          const w = lib.GetSatHumRatio(T, P) * 1000;
+          d += `${k ? 'L' : 'M'}${lx(T).toFixed(1)},${ly(w).toFixed(1)} `;
+        }
+        svg += `<path d="${d}" fill="none" stroke="#0284c7" stroke-width="2" clip-path="url(#${clipId})"/>`;
+        // recta de sala (I sobre la mateixa recta, només es mou el punt)
+        if (R) svg += seg({ t: T0, w_g_kg: R.w_g_kg - (sol.slopeRoom || 0) * 1000 * (R.t - T0) }, { t: T1, w_g_kg: R.w_g_kg - (sol.slopeRoom || 0) * 1000 * (R.t - T1) }, '#fca5a5', 1.5, '4,3');
+        // procés inicial (gris) i nou (blau), prolongats fins a S
+        svg += seg(ghost.M, ghost.S, '#94a3b8', 2, '6,4');
+        svg += seg(M, S, '#0284c7', 2.5, '');
+        const dot = (p, n, col, hollow, dx, dy, an) => `<circle cx="${lx(p.t)}" cy="${ly(p.w_g_kg)}" r="4.5" fill="${hollow ? '#fff' : col}" stroke="${col}" stroke-width="2"/><text x="${lx(p.t) + dx}" y="${ly(p.w_g_kg) + dy}" font-size="10" font-weight="700" fill="${col}" text-anchor="${an}" font-family="var(--font-mono), monospace">${n}</text>`;
+        svg += dot(ghost.I, `I₀ ${ghost.I.t.toFixed(2)}°C`, '#64748b', true, 7, -8, 'start');
+        svg += dot(ghost.S, `S₀ ${ghost.S.t.toFixed(2)}°C`, '#64748b', true, -7, 16, 'end');
+        svg += dot(I, `I ${I.t.toFixed(2)}°C`, '#0ea5e9', false, 7, 16, 'start');
+        svg += dot(S, `S ${S.t.toFixed(2)}°C`, '#06b6d4', false, 7, -8, 'start');
+        svg += `<text x="${ix}" y="${iy + IH + 14}" font-size="9" fill="#64748b" font-family="var(--font-mono), monospace">T: ${T0.toFixed(1)}–${T1.toFixed(1)} °C · w: ${W0.toFixed(1)}–${W1.toFixed(1)} g/kg</text>`;
+        svg += `</g>`;
+      }
+
       // Pas 6+: Procés de bateria M - I i prolongació a S
       if (maxStep >= 6 && M && I) {
         const markerCoil = layerState.arrows ? `marker-end="url(#${ids.arrow_blue})"` : '';
@@ -404,6 +460,9 @@ const PsychroChart = (() => {
           
           <line x1="10" y1="74" x2="30" y2="74" stroke="#38bdf8" stroke-width="1.8" stroke-dasharray="2,2"/>
           <text x="36" y="78" font-size="10" fill="#374151" font-family="var(--font-sans), sans-serif">Prolongació a S</text>
+          ${ghost ? `<rect x="0" y="85" width="180" height="22" fill="#ffffff" opacity="0.94" stroke="#e2e8f0" rx="4"/>
+          <line x1="10" y1="96" x2="30" y2="96" stroke="#94a3b8" stroke-width="2.5" stroke-dasharray="5,3"/>
+          <text x="36" y="100" font-size="10" fill="#374151" font-family="var(--font-sans), sans-serif">Inicial no viable (T_S &lt; 7)</text>` : ''}
         </g>`;
       }
     }

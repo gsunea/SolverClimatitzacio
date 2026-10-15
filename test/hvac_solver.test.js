@@ -205,4 +205,153 @@ describe('HVAC System Solver (ClimaSolver.solve)', () => {
       solver.solve({ ...canonicalInput, pointR_props: null, pointR: null });
     }, /insuficients.*Retorn/i);
   });
+
+  test('Hot humid ventilation: supersaturated mix V–R is handled as fog, not an error', () => {
+    const sol = solver.solve({
+      q_si: 5, q_li: 0, Q_v: 1000,
+      pointV_props: { t: 45, phi: 90 }, pointR_props: { t: 20, phi: 50 },
+      phi_I: 90, fr_infiltr: 0, altitude: 0
+    });
+    assert.ok(Math.abs(sol.points.M.phi - 100) < 1e-6, 'M should be saturated');
+    assert.ok(sol.warnings.some(w => /boira/i.test(w)));
+    assert.ok(sol.powers.m_dot_cond > 0);
+  });
+
+  describe('Mass flows: ventilation larger than supply (m_v > m_I)', () => {
+    const base = {
+      q_si: 5, q_li: 1, Q_v: 5000,
+      pointV_props: { t: 35, phi: 70 }, pointR_props: { t: 24, phi: 55 }, altitude: 0
+    };
+
+    for (const [label, extra] of [
+      ['phi_I', { phi_I: 90 }],
+      ['T_I', { target_TI: 16 }],
+      ['w_I', { target_wI: solver.solve({
+        q_si: 5, q_li: 1, Q_v: 5000,
+        pointV_props: { t: 35, phi: 70 }, pointR_props: { t: 24, phi: 55 }, phi_I: 90
+      }).points.I.w * 0.98 }],
+      ['Q_I', { target_QI: 2000 }]
+    ]) {
+      test(`m_I = m_v and m_R = 0 (never negative) with fixed ${label}`, () => {
+        const sol = solver.solve({ ...base, ...extra });
+        assert.ok(sol.allOutdoorAir);
+        assert.strictEqual(sol.points.R.m_dot, 0);
+        assert.ok(Math.abs(sol.points.I.m_dot - sol.powers.m_dot_v_coil) < 1e-12);
+        assert.ok(sol.points.R.m_dot >= 0);
+        assert.ok(Math.abs(sol.points.I.m_dot * (sol.points.R.h - sol.points.I.h) - sol.powers.q_room) < 1e-6);
+      });
+    }
+
+    test('Mass flows are exposed in powers (m_dot_I, m_dot_R, m_dot_v_total)', () => {
+      const sol = solver.solve(canonicalInput);
+      assert.ok(sol.powers.m_dot_I > 0 && sol.powers.m_dot_v_total > 0);
+      assert.ok(Math.abs(sol.powers.m_dot_I - (sol.powers.m_dot_v_coil + sol.powers.m_dot_R)) < 1e-12);
+    });
+  });
+
+  describe('Coil temperature (T_bat = T_S) and viability', () => {
+    test('Canonical example: T_bat > 9 °C is viable', () => {
+      const sol = solver.solve(canonicalInput);
+      assert.strictEqual(sol.coil.status, 'viable');
+      assert.ok(sol.coil.T > 9);
+      assert.ok(/viable/.test(sol.coil.message));
+      assert.ok(!sol.coil.corrected);
+    });
+
+    test('T_bat between 7 and 9 °C gives the "compte" warning', () => {
+      const sol = solver.solve({ ...canonicalInput, target_TS: 8.0 });
+      assert.strictEqual(sol.coil.status, 'ojo');
+      assert.ok(/Compte/.test(sol.coil.message));
+      assert.ok(Math.abs(sol.coil.T - 8.0) < 1e-3);
+    });
+
+    const coldCase = {
+      q_si: 20, q_li: 5, Q_v: 1000,
+      pointV_props: { t: 10, phi: 40 }, pointR_props: { t: 22, phi: 45 }, phi_I: 90
+    };
+
+    test('T_bat < 7 °C is fixed to 7 °C and the supply state is recalculated backwards', () => {
+      const withoutFix = solver.solve({ ...coldCase, fix_min_TS: false });
+      assert.strictEqual(withoutFix.coil.status, 'no_viable');
+      assert.ok(withoutFix.coil.T < 7);
+
+      const fixed = solver.solve(coldCase);
+      assert.ok(fixed.coil.corrected);
+      assert.ok(Math.abs(fixed.points.S.t - 7.0) < 1e-3, `T_S = ${fixed.points.S.t}`);
+      assert.strictEqual(fixed.coil.status, 'ojo');
+      assert.ok(fixed.points.I.t > withoutFix.points.I.t, 'supply must be warmer than the non-viable solution');
+      // El balanç de la sala i de masses segueix tancant
+      const { I, R } = fixed.points;
+      assert.ok(Math.abs(I.m_dot * (R.h - I.h) - fixed.powers.q_room) < 1e-6);
+      assert.ok(Math.abs(I.m_dot - (fixed.powers.m_dot_v_coil + R.m_dot)) < 1e-9);
+      // M, I i S estan alineats (recta de bateria)
+      const { M, S } = fixed.points;
+      const s1 = (I.w - M.w) / (I.t - M.t);
+      const s2 = (S.w - I.w) / (S.t - I.t);
+      assert.ok(Math.abs(s1 - s2) < 1e-6);
+    });
+
+    test('Sweep: every corrected case ends with T_bat = 7 °C and a closed energy balance', () => {
+      let corrected = 0;
+      for (const Tv of [10, 28, 35]) for (const phiI of [75, 90, 98]) for (const qsi of [5, 20]) for (const Qv of [1000, 5000]) {
+        let sol;
+        try {
+          sol = solver.solve({
+            q_si: qsi, q_li: 5, Q_v: Qv,
+            pointV_props: { t: Tv, phi: 40 }, pointR_props: { t: 22, phi: 45 }, phi_I: phiI
+          });
+        } catch (e) { continue; }
+        if (!sol.coil.corrected) continue;
+        corrected++;
+        assert.ok(Math.abs(sol.points.S.t - 7.0) < 1e-3);
+        assert.ok(sol.points.R.m_dot >= 0);
+      }
+      assert.ok(corrected > 0, 'the sweep should exercise the backward recalculation');
+    });
+
+    test('If no supply state can reach 7 °C the case is reported as not viable (no crash)', () => {
+      const sol = solver.solve({
+        q_si: 5, q_li: 1, Q_v: 0,
+        pointV_props: { t: 10, phi: 40 }, pointR_props: { t: 22, phi: 45 }, phi_I: 75
+      });
+      assert.strictEqual(sol.coil.status, 'no_viable');
+      assert.ok(sol.coil.unresolved);
+    });
+  });
+
+  describe('Reference case: ventilation mass flow > supply AND coil temperature below 7 °C', () => {
+    // V 26 °C / 30 %, R 22 °C / 45 %, q_si 15 kW, q_li 5 kW, Q_v 4000 m3/h, phi_I 90 %
+    const oaCase = {
+      q_si: 15, q_li: 5, Q_v: 4000,
+      pointV_props: { t: 26, phi: 30 }, pointR_props: { t: 22, phi: 45 },
+      phi_I: 90, fr_infiltr: 0, altitude: 0
+    };
+
+    test('Without the coil limit: m_v > m_I -> 100% outdoor air (m_I = m_v, m_R = 0) and T_bat < 7 °C', () => {
+      const sol = solver.solve({ ...oaCase, fix_min_TS: false });
+      assert.ok(sol.allOutdoorAir);
+      assert.strictEqual(sol.points.R.m_dot, 0);
+      assert.ok(Math.abs(sol.points.I.m_dot - sol.powers.m_dot_v_coil) < 1e-12);
+      assert.ok(sol.powers.m_dot_I_balance < sol.powers.m_dot_v_coil, 'balance flow is smaller than ventilation flow');
+      assert.strictEqual(sol.coil.status, 'no_viable');
+      assert.ok(sol.coil.T < 7);
+    });
+
+    test('With the coil limit: T_bat is fixed to 7 °C, recirculation comes back (m_R > 0) and m_I >= m_v', () => {
+      const sol = solver.solve(oaCase);
+      assert.ok(sol.coil.corrected);
+      assert.ok(sol.coil.natural.allOutdoorAir, 'the starting point was the 100% outdoor air case');
+      assert.ok(Math.abs(sol.points.S.t - 7.0) < 1e-3);
+      assert.ok(!sol.allOutdoorAir);
+      assert.ok(sol.points.R.m_dot > 0);
+      assert.ok(sol.points.I.m_dot >= sol.powers.m_dot_v_coil);
+      assert.ok(Math.abs(sol.points.I.m_dot * (sol.points.R.h - sol.points.I.h) - sol.powers.q_room) < 1e-6);
+      // Traça del procediment: inicial ... solució, amb T_S final = 7
+      const tr = sol.coil.recalc.trials;
+      assert.strictEqual(tr[0].label, 'inicial');
+      assert.strictEqual(tr[tr.length - 1].label, 'solució');
+      assert.ok(Math.abs(tr[tr.length - 1].T_S - 7.0) < 1e-3);
+      assert.ok(tr.some(t => /bisecció/.test(t.label)));
+    });
+  });
 });

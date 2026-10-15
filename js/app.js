@@ -54,7 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
       q_v: 1000.0,
       manualQi: null
     },
-    fr_infiltr: 0.0
+    fr_infiltr: 0.0,
+    fixMinTS: true
   };
 
   let lastSolution = null;
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inQv = document.getElementById('in-qv');
   const inQi = document.getElementById('in-qi');
   const inInfil = document.getElementById('in-infil');
+  const inFixTs = document.getElementById('in-fix-ts');
 
   // Inputs d'impulsió i superfície
   const cellIT = document.getElementById('cell-i-t');
@@ -234,8 +236,32 @@ document.addEventListener('DOMContentLoaded', () => {
     'out-s-w', 'out-s-v', 'out-s-h', 'out-s-tr', 'out-s-th',
     'out-fbp', 'out-qsv', 'out-qlv', 'out-qtot', 'out-fcstot',
     'out-qr', 'out-qm', 'out-mcond',
-    'kpi-quick-qbat', 'kpi-quick-fbp', 'kpi-quick-mcond', 'kpi-quick-qi'
+    'out-mdot-v', 'out-mdot-i', 'out-mdot-r', 'out-mdot-m',
+    'kpi-quick-qbat', 'kpi-quick-fbp', 'kpi-quick-mcond', 'kpi-quick-qi', 'kpi-quick-tbat'
   ];
+
+  /**
+   * Mostra el missatge de viabilitat de la temperatura de la bateria (T_bat = T_S)
+   */
+  function renderCoilStatus(coil) {
+    const box = document.getElementById('coil-status');
+    const tile = document.getElementById('kpi-tile-tbat');
+    ['viable', 'ojo', 'no_viable', 'sense_S'].forEach(k => {
+      if (box) box.classList.remove(k);
+      if (tile) tile.classList.remove(k);
+    });
+    if (!box) return;
+    if (!coil) {
+      box.style.display = 'none';
+      return;
+    }
+    box.style.display = 'block';
+    box.classList.add(coil.status);
+    if (tile) tile.classList.add(coil.status);
+    setCell('coil-status-temp', coil.T !== null ? `${fmt(coil.T, 1)} °C` : '—');
+    setCell('coil-status-msg', coil.message);
+    setCell('kpi-quick-tbat', coil.T !== null ? `${fmt(coil.T, 1)} °C` : '—');
+  }
 
   function clearOutputs() {
     lastSolution = null;
@@ -244,7 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
     [cellIT, cellIPhi, cellIW, cellST, inQi].forEach(el => {
       if (el && el.classList.contains('is-calc') && document.activeElement !== el) el.value = '';
     });
-    PsychroChart.render(null, 7, 'psychro-container');
+    renderCoilStatus(null);
+    PsychroChart.render(null, 8, 'psychro-container');
     StepDebugger.clear();
   }
 
@@ -477,6 +504,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupFlowsInputs();
 
+  if (inFixTs) {
+    inFixTs.addEventListener('change', () => {
+      pointState.fixMinTS = inFixTs.checked;
+      refresh();
+    });
+  }
+
   /**
    * Comprova si les dades d'entrada necessàries estan completes
    */
@@ -528,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         FCS_i: pointState.powers.lastEdited === 'fcsi' ? pointState.powers.fcs_i : null,
         Q_v: pointState.flows.q_v,
         fr_infiltr: pointState.fr_infiltr,
+        fix_min_TS: pointState.fixMinTS,
         altitude: 0
       };
 
@@ -596,6 +631,13 @@ document.addEventListener('DOMContentLoaded', () => {
       setCell('out-qm', fmt(pts.M.Q, 1));
       setCell('out-mcond', fmt(pow.M_cond_h, 2));
 
+      // 4. Taula de cabals màssics (kg/s)
+      setCell('out-mdot-v', fmt(pts.V.m_dot, 4));
+      setCell('out-mdot-i', fmt(pts.I.m_dot, 4));
+      setCell('out-mdot-r', fmt(pts.R.m_dot, 4));
+      setCell('out-mdot-m', fmt(pts.M.m_dot, 4));
+      renderCoilStatus(sol.coil);
+
       // Indicadors ràpids (KPIs)
       setCell('kpi-quick-qbat', `${fmt(pow.q_bateria, 2)} kW`);
       setCell('kpi-quick-fbp', fmt(pow.FBP, 3));
@@ -609,7 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Dibuixar diagrama psicromètric
-      PsychroChart.render(sol, 7, 'psychro-container');
+      PsychroChart.render(sol, 8, 'psychro-container');
 
       // Actualitzar el debugger (mantenint el pas on es trobava l'usuari)
       StepDebugger.setSolution(sol, { keepStep: true });
@@ -732,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
       viewMain.style.display = 'grid';
       viewDebugger.style.display = 'none';
       if (lastSolution) {
-        PsychroChart.render(lastSolution, 7, 'psychro-container');
+        PsychroChart.render(lastSolution, 8, 'psychro-container');
       }
     } else {
       tabDebugger.classList.add('active');
@@ -756,8 +798,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modalFullscreen) return;
     modalFullscreen.style.display = 'flex';
     const isDebugActive = tabDebugger && tabDebugger.classList.contains('active');
-    const step = isDebugActive ? StepDebugger.getCurrentStep() : 7;
-    PsychroChart.render(lastSolution, step, 'fullscreen-chart-container');
+    const step = isDebugActive ? StepDebugger.getCurrentStep() : 8;
+    PsychroChart.render((step < 7 && lastSolution && lastSolution.naturalSolution) ? lastSolution.naturalSolution : lastSolution, step, 'fullscreen-chart-container');
   }
 
   function closeFullscreenChart() {

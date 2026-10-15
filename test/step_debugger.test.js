@@ -18,11 +18,11 @@ describe('Step Debugger LaTeX and Navigation (StepDebugger)', () => {
 
   const sol = solver.solve(canonicalInput);
 
-  test('StepDebugger defines TOTAL_STEPS = 7', () => {
-    assert.strictEqual(StepDebugger.TOTAL_STEPS, 7);
+  test('StepDebugger defines TOTAL_STEPS = 8', () => {
+    assert.strictEqual(StepDebugger.TOTAL_STEPS, 8);
   });
 
-  for (let step = 1; step <= 7; step++) {
+  for (let step = 1; step <= 8; step++) {
     test(`Step ${step} generates valid LaTeX content without NaN or undefined`, () => {
       const data = StepDebugger.getStepContent(step, sol);
 
@@ -83,6 +83,47 @@ describe('Step Debugger LaTeX and Navigation (StepDebugger)', () => {
     assert.ok(data.latexSubstituted.includes('16.2') || data.latexSubstituted.includes('33.7'));
   });
 
+  test('Step 8 shows coil temperature and viability', () => {
+    const data = StepDebugger.getStepContent(8, sol);
+    assert.ok(data.title.includes('Bateria'));
+    assert.ok(data.summary.includes('viable'));
+    assert.ok(data.latexSubstituted.includes('10.96'));
+  });
+
+  test('Step 4 reports mass flows and the 100% outdoor air case (m_R = 0)', () => {
+    const oa = solver.solve({
+      q_si: 5, q_li: 1, Q_v: 5000,
+      pointV_props: { t: 35, phi: 70 }, pointR_props: { t: 24, phi: 55 }, phi_I: 90
+    });
+    assert.ok(oa.allOutdoorAir);
+    const data = StepDebugger.getStepContent(4, oa);
+    assert.ok(data.summary.includes('ṁ_R = 0.0000'));
+    assert.ok(data.latexSubstituted.includes('\\dot{m}_{I,\\text{bal}}'));
+  });
+
+  test('Step 8 describes the backward recalculation when T_bat is fixed to the minimum', () => {
+    const fixed = solver.solve({
+      q_si: 20, q_li: 5, Q_v: 1000,
+      pointV_props: { t: 10, phi: 40 }, pointR_props: { t: 22, phi: 45 }, phi_I: 90
+    });
+    assert.ok(fixed.coil.corrected);
+    const s6 = StepDebugger.getStepContent(6, fixed);
+    assert.ok(s6.summary.includes('NO viable') || s6.summary.includes('no és viable'));
+    assert.ok(s6.latexSubstituted.includes('NO viable') && s6.latexSubstituted.includes('Pas 7'));
+    assert.ok(s6.latexSubstituted.includes(fixed.naturalSolution.points.S.t.toFixed(2)));
+    const data = StepDebugger.getStepContent(7, fixed);
+    assert.ok(data.title.includes('recàlcul cap enrere'));
+    assert.ok(data.latexSubstituted.includes('Càlcul de la solució'));
+    assert.ok(data.latexSubstituted.includes(fixed.points.I.t.toFixed(2)));
+    assert.ok(StepDebugger.getStepContent(8, fixed).latexSubstituted.includes('7.00'));
+    assert.ok(data.latexFormula.includes('Recàlcul cap enrere'));
+    assert.ok(data.latexSubstituted.includes('Tempteig'));
+    assert.ok(data.latexSubstituted.includes('bisecció 1'));
+    assert.ok(data.latexSubstituted.includes('\\begin{array}'));
+  assert.ok(!StepDebugger.getStepContent(3, fixed).summary.includes('recalculat cap enrere'), 'els passos 1-7 mostren el càlcul normal');
+  assert.ok(Math.abs(fixed.naturalSolution.coil.T - fixed.coil.natural.T_S) < 1e-6);
+  });
+
   test('Navigation bounds: step clamping', () => {
     StepDebugger.setSolution(sol);
 
@@ -95,11 +136,11 @@ describe('Step Debugger LaTeX and Navigation (StepDebugger)', () => {
 
     // Jump to last step
     StepDebugger.lastStep();
-    assert.strictEqual(StepDebugger.getCurrentStep(), 7);
+    assert.strictEqual(StepDebugger.getCurrentStep(), 8);
 
-    // Next step cannot exceed 7
+    // Next step cannot exceed 8
     StepDebugger.nextStep();
-    assert.strictEqual(StepDebugger.getCurrentStep(), 7);
+    assert.strictEqual(StepDebugger.getCurrentStep(), 8);
 
     // Jump to first step
     StepDebugger.firstStep();
@@ -112,4 +153,32 @@ describe('Step Debugger LaTeX and Navigation (StepDebugger)', () => {
     assert.strictEqual(emptyContent.latexFormula, '');
     assert.strictEqual(emptyContent.latexSubstituted, '');
   });
+
+  test('Step 8 for the 100% outdoor air + corrected case explains the recalculation procedure', () => {
+    const fixed = solver.solve({
+      q_si: 15, q_li: 5, Q_v: 4000,
+      pointV_props: { t: 26, phi: 30 }, pointR_props: { t: 22, phi: 45 }, phi_I: 90
+    });
+    const data = StepDebugger.getStepContent(fixed.naturalSolution ? 7 : 8, fixed);
+    assert.ok(data.latexSubstituted.includes('100'));
+    assert.ok(data.latexSubstituted.includes('aire exterior'));
+    assert.ok(!/undefined|NaN|null/.test(data.latexFormula + data.latexSubstituted));
+  });
+});
+
+test('Pas 8: també mostra el procediment quan el recàlcul no té solució', () => {
+  const S = require('../js/solver.js'), D = require('../js/step_debugger.js');
+  let found = null, seed = 7;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  const U = (a, b) => a + (b - a) * rnd();
+  for (let k = 0; k < 3000 && !found; k++) {
+    const V = S.solvePointFromProperties({ t: U(10, 42), phi: U(20, 90) });
+    const R = S.solvePointFromProperties({ t: U(20, 28), phi: U(35, 65) });
+    let s; try { s = S.solve({ q_si: U(3, 50), q_li: U(0, 12), Q_v: U(300, 10000), pointV: V, pointR: R, phi_I: U(75, 99) }); } catch (e) { continue; }
+    if (s.coil.recalc && s.coil.recalc.failed) found = s;
+  }
+  assert.ok(found, 'cal trobar un cas sense solució');
+  const c = D.getStepContent(8, found);
+  assert.match(c.latexFormula, /Recàlcul cap enrere/);
+  assert.match(c.latexSubstituted, /no hi ha solució/);
 });

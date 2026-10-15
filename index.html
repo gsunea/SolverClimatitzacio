@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solver de Climatitzadors en Estiu</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=7">
   
   <!-- KaTeX per renderitzar fórmules LaTeX ràpid i nítid -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -17,7 +17,7 @@
     <header class="top-navbar">
       <div class="brand-section">
         <div class="brand-title">
-          <h1>Climatitzador en Estiu</h1>
+          <h1>Climatitzador en Estiu <small style="font-size:.5em;opacity:.6">v7</small></h1>
           <span>Resolució termodinàmica i carta psicromètrica</span>
         </div>
       </div>
@@ -283,6 +283,41 @@
 
           </div>
 
+          <!-- 4. Cabals màssics d'aire (kg/s) -->
+          <div class="table-scroll">
+            <table class="data-table table-reflow table-mass-flows">
+              <thead>
+                <tr class="th-gray">
+                  <th>ṁ_ventilació<br><small>kg/s</small></th>
+                  <th>ṁ_impulsió<br><small>kg/s</small></th>
+                  <th>ṁ_retorn<br><small>kg/s</small></th>
+                  <th>ṁ_mescla<br><small>kg/s</small></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td id="out-mdot-v" class="calc-val text-center">—</td>
+                  <td id="out-mdot-i" class="calc-val text-center">—</td>
+                  <td id="out-mdot-r" class="calc-val text-center">—</td>
+                  <td id="out-mdot-m" class="calc-val text-center">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Temperatura de la bateria i viabilitat -->
+          <div id="coil-status" class="coil-status" style="display: none;" role="status">
+            <div class="coil-status-head">
+              <span class="coil-status-title">Temperatura de la bateria</span>
+              <span id="coil-status-temp" class="coil-status-temp">—</span>
+            </div>
+            <div id="coil-status-msg" class="coil-status-msg"></div>
+          </div>
+          <label class="coil-fix-option" title="Si T_bat < 7 ºC, es fixa a 7 ºC i es recalcula la impulsió cap enrere">
+            <input type="checkbox" id="in-fix-ts" checked>
+            Limitar T_bat a un mínim de 7 ºC (recalcula la impulsió si cal)
+          </label>
+
           <!-- Barra d'Estat -->
           <div class="action-status-bar">
             <div id="status-pill" class="status-badge missing">
@@ -345,6 +380,10 @@
             <div class="label">Cabal Impulsió</div>
             <div class="value" id="kpi-quick-qi">—</div>
           </div>
+          <div class="kpi-tile" id="kpi-tile-tbat">
+            <div class="label">T bateria</div>
+            <div class="value" id="kpi-quick-tbat">—</div>
+          </div>
         </div>
 
       </section>
@@ -356,7 +395,7 @@
       
       <!-- Barra de controls del Debugger -->
       <div class="debugger-controls-bar">
-        <span id="debug-step-indicator" class="debug-step-indicator">Pas 1 de 7</span>
+        <span id="debug-step-indicator" class="debug-step-indicator">Pas 1 de 8</span>
         
         <div class="debug-buttons-group">
           <button type="button" id="debug-btn-first" class="btn-nav-step" title="Primer Pas">Principi</button>
@@ -425,9 +464,9 @@
 
   <!-- Scripts -->
   <script src="js/psychrolib.js"></script>
-  <script src="js/solver.js"></script>
-  <script src="js/chart.js"></script>
-  <script src="js/step_debugger.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/solver.js?v=7"></script>
+  <script src="js/chart.js?v=7"></script>
+  <script src="js/step_debugger.js?v=7"></script>
+  <script src="js/app.js?v=7"></script>
 </body>
 </html>

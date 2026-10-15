@@ -6,7 +6,7 @@
 
 const StepDebugger = (() => {
   let currentStep = 1;
-  const TOTAL_STEPS = 7;
+  const TOTAL_STEPS = 8;
   let activeSolution = null;
 
   function fmt(val, dec = 2) {
@@ -146,6 +146,10 @@ ${header}
 \\text{Condició:} &\\quad w_I(T_I) = w_{\\varphi_I}(T_I)`;
     }
 
+    if (sol.coil && sol.coil.corrected) {
+      summary += ` Atenció: la impulsió s'ha recalculat cap enrere perquè la temperatura de la bateria no baixi del límit (vegeu el pas 8); la condició inicial ja no es manté.`;
+    }
+
     return {
       title: 'Pas 3: Determinació del Punt d\'Impulsió (I)',
       summary,
@@ -169,6 +173,9 @@ h_I &= \\mathbf{${fmt(I.h, 2)}\\text{ kJ/kg}},\\quad v_I = ${fmt(I.v, 3)}\\text{
   function getStepContent(stepIndex, sol) {
     if (!sol) return { title: 'Sense dades', summary: 'Cal calcular el sistema prèviament.', latexFormula: '', latexSubstituted: '' };
 
+    // Passos 1-6: càlcul normal (sense fixar T_bat). Els passos 7-8 usen la solució corregida.
+    const finalSol = sol;
+    if (stepIndex < 7 && sol.naturalSolution) sol = sol.naturalSolution;
     const pts = sol.points;
     const pow = sol.powers;
     const V = pts.V;
@@ -181,6 +188,144 @@ h_I &= \\mathbf{${fmt(I.h, 2)}\\text{ kJ/kg}},\\quad v_I = ${fmt(I.v, 3)}\\text{
     // Cabal de ventilació que realment passa per la bateria (sense infiltració)
     const mVcoil = pow.m_dot_v_coil !== undefined ? pow.m_dot_v_coil : V.m_dot;
     const qRoom = pow.q_room !== undefined ? pow.q_room : pow.q_i;
+
+    const coilStep = (titleTxt, opts = {}) => {
+        const coil = sol.coil || {};
+        const lim = coil.limits || { min: 7, warn: 9 };
+        const T = coil.T;
+        const statusText = {
+          viable: 'Viable',
+          ojo: 'Compte (zona límit)',
+          no_viable: 'NO viable',
+          sense_S: 'No determinable'
+        }[coil.status] || '—';
+        // Equacions (alineades a l'esquerra, línies curtes perquè càpiguen a la targeta)
+        const baseLines = `T_{bat} = T_S \\quad (\\text{superfície de la bateria, } \\varphi_S = 100\\%) \\\\[6pt]
+\\begin{cases}
+T_{bat} > ${lim.warn}\\,^\\circ\\text{C} & \\Rightarrow \\text{viable} \\\\
+${lim.min}\\,^\\circ\\text{C} \\le T_{bat} \\le ${lim.warn}\\,^\\circ\\text{C} & \\Rightarrow \\text{compte} \\\\
+T_{bat} < ${lim.min}\\,^\\circ\\text{C} & \\Rightarrow \\text{no viable}
+\\end{cases} \\\\[2pt]
+\\text{Si } T_{bat} < ${lim.min}\\,^\\circ\\text{C}: \\text{ fixar } T_S = ${lim.min}\\,^\\circ\\text{C} \\text{ i recalcular } I \\text{ cap enrere}`;
+
+        const nat = coil.natural || {};
+        const rc = coil.recalc;
+        const hasProc = !opts.noProc && !!(rc && (rc.failed || (coil.corrected && Array.isArray(rc.trials))));
+
+        if (!hasProc) {
+          if (T === null || T === undefined) {
+            return {
+              title: titleTxt,
+              summary: coil.message || 'Sense dades de bateria.',
+              latexFormula: `\\begin{array}{l}
+${baseLines}
+\\end{array}`,
+              latexSubstituted: `\\begin{array}{l}
+\\text{No hi ha punt de superfície (S): la recta } M-I \\text{ no talla } \\varphi = 100\\%
+\\end{array}`
+            };
+          }
+          return {
+            title: titleTxt,
+            summary: coil.message || 'Sense dades de bateria.',
+            latexFormula: `\\begin{array}{l}
+${baseLines}
+\\end{array}`,
+            latexSubstituted: `\\begin{array}{l}
+T_{bat} = T_S = \\mathbf{${fmt(T, 2)}\\,^\\circ\\text{C}} \\\\[6pt]
+\\text{Estat: } \\mathbf{\\text{${statusText}}}
+\\end{array}`
+          };
+        }
+
+        // --- Procediment de recàlcul cap enrere (T_S fixada) ---
+        const target = rc.target;
+        const oaNat = !!nat.allOutdoorAir;
+        const formula = `\\begin{array}{l}
+${baseLines} \\\\[14pt]
+\\textbf{Recàlcul cap enrere amb } T_S = ${fmt(target, 1)}\\,^\\circ\\text{C}\\textbf{:} \\\\[6pt]
+\\text{1) Incògnita: } T_I \\text{ sobre la recta de maniobra} \\\\
+\\qquad w_I(T_I) = w_R - K\\,(T_R - T_I) \\\\[6pt]
+\\text{2) Cabals per a cada } T_I \\\\
+\\qquad \\dot{m}_I = \\dfrac{q_{\\text{sala}}}{h_R - h_I(T_I)},\\quad \\dot{m}_R = \\dot{m}_I - \\dot{m}_{v,\\text{bat}} \\ge 0 \\\\[6pt]
+\\text{3) Mescla } M(T_I) \\\\
+\\qquad w_M = \\dfrac{\\dot{m}_{v,\\text{bat}}\\, w_v + \\dot{m}_R\\, w_R}{\\dot{m}_I},\\quad h_M = \\dfrac{\\dot{m}_{v,\\text{bat}}\\, h_v + \\dot{m}_R\\, h_R}{\\dot{m}_I} \\\\[6pt]
+\\text{4) Recta } M-I \\text{ prolongada fins a } \\varphi = 100\\% \\Rightarrow T_S(T_I) \\\\[6pt]
+\\text{5) Condició: } T_S(T_I) = ${fmt(target, 1)}\\,^\\circ\\text{C} \\Rightarrow \\text{escaneig de } T_I \\text{ i bisecció}
+\\end{array}`;
+
+        if (rc.failed) {
+          const rngS = (Number.isFinite(rc.T_S_min) && Number.isFinite(rc.T_S_max))
+            ? `T_S \\in [${fmt(rc.T_S_min, 2)},\\, ${fmt(rc.T_S_max, 2)}]\\,^\\circ\\text{C}`
+            : `T_S \\text{ no definida (la recta } M-I \\text{ no talla } \\varphi=100\\%)`;
+          const rngI = (Number.isFinite(rc.T_I_min) && Number.isFinite(rc.T_I_max))
+            ? `T_I \\in [${fmt(rc.T_I_min, 1)},\\, ${fmt(rc.T_I_max, 1)}]\\,^\\circ\\text{C}`
+            : '';
+          const stT = (T === null || T === undefined) ? '\\text{no determinable}' : `${fmt(T, 2)}\\,^\\circ\\text{C}`;
+          const failedSubst = `\\begin{array}{l}
+\\text{Dades: } q_{\\text{sala}} = ${fmt(qRoom, 2)}\\text{ kW},\\; \\dot{m}_{v,\\text{bat}} = ${fmt(mVcoil, 4)}\\text{ kg/s} \\\\
+\\qquad K = ${fmt(sol.slopeRoom * 1000, 4)}\\text{ (g/kg)/°C} \\\\[8pt]
+\\text{Situació inicial: } T_S = ${nat.T_S !== undefined && nat.T_S !== null ? fmt(nat.T_S, 2) : '\\text{--}'}\\,^\\circ\\text{C} < ${fmt(lim.min, 0)}\\,^\\circ\\text{C} \\Rightarrow \\text{no viable} \\\\[10pt]
+\\text{Escaneig de } T_I \\text{ (${rc.samples || 0} punts vàlids): } ${rngI} \\\\
+\\qquad \\Rightarrow ${rngS} \\\\
+\\text{Cap } T_I \\text{ dona } T_S = ${fmt(rc.target, 1)}\\,^\\circ\\text{C} \\Rightarrow \\text{no hi ha solució cap enrere} \\\\[10pt]
+T_{bat} = T_S = \\mathbf{${stT}} \\Rightarrow \\mathbf{\\text{${statusText}}}
+\\end{array}`;
+          return {
+            title: titleTxt,
+            summary: coil.message || 'No s\'ha pogut fixar T_bat.',
+            latexFormula: formula,
+            latexSubstituted: failedSubst
+          };
+        }
+
+        const rows = rc.trials.map(t => {
+          const tsTxt = Number.isFinite(t.T_S) ? fmt(t.T_S, 3) : '\\infty';
+          return `\\text{${t.label}} & ${fmt(t.T_I, 3)} & ${fmt(t.phi_I, 1)} & ${fmt(t.m_I, 4)} & ${fmt(t.m_R, 4)} & ${fmt(t.T_M, 2)} & ${tsTxt}`;
+        }).join(' \\\\\n');
+        const table = `\\begin{array}{lrrrrrr}
+\\text{Iteració} & T_I & \\varphi_I & \\dot{m}_I & \\dot{m}_R & T_M & T_S \\\\
+ & {}^\\circ\\text{C} & \\% & \\text{kg/s} & \\text{kg/s} & {}^\\circ\\text{C} & {}^\\circ\\text{C} \\\\
+\\hline
+${rows}
+\\end{array}`;
+
+        const oaLines = oaNat ? ` \\\\[6pt]
+\\quad \\dot{m}_{v,\\text{bat}} = ${fmt(mVcoil, 4)} > \\dot{m}_{I,\\text{bal}} = ${fmt(nat.m_dot_I_balance, 4)}\\text{ kg/s} \\\\
+\\quad \\Rightarrow \\dot{m}_I = \\dot{m}_v,\\; \\dot{m}_R = 0 \\;(\\text{100\\% aire exterior}) \\\\
+\\quad \\text{Es cerquen impulsions amb } \\dot{m}_I \\ge \\dot{m}_v \\text{ (torna la recirculació)}` : '';
+
+        const substituted = `\\begin{array}{l}
+\\text{Dades: } q_{\\text{sala}} = ${fmt(qRoom, 2)}\\text{ kW},\\; \\dot{m}_{v,\\text{bat}} = ${fmt(mVcoil, 4)}\\text{ kg/s} \\\\
+\\qquad K = ${fmt(sol.slopeRoom * 1000, 4)}\\text{ (g/kg)/°C} \\\\[8pt]
+\\text{Situació inicial: } T_S = ${fmt(nat.T_S, 2)}\\,^\\circ\\text{C} < ${fmt(lim.min, 0)}\\,^\\circ\\text{C} \\Rightarrow \\text{no viable}${oaLines} \\\\[10pt]
+\\text{Tempteig de } T_I \\text{ fins que } T_S = ${fmt(target, 1)}\\,^\\circ\\text{C}\\text{:} \\\\[4pt]
+${table} \\\\[10pt]
+\\textbf{Càlcul de la solució trobada (nous valors):} \\\\[4pt]
+\\quad w_I = w_R - K\\,(T_R - T_I) \\\\
+\\qquad = ${fmt(R.w_g_kg, 2)} - ${fmt(sol.slopeRoom * 1000, 4)}\\,(${fmt(R.t, 1)} - ${fmt(I.t, 2)}) \\\\
+\\qquad = ${fmt(I.w_g_kg, 2)}\\text{ g/kg} \\\\
+\\qquad h_I = ${fmt(I.h, 2)}\\text{ kJ/kg} \\\\
+\\quad \\dot{m}_I = \\dfrac{${fmt(qRoom, 2)}}{${fmt(R.h, 2)} - ${fmt(I.h, 2)}} = ${fmt(I.m_dot, 4)}\\text{ kg/s} \\\\
+\\quad \\dot{m}_R = ${fmt(I.m_dot, 4)} - ${fmt(mVcoil, 4)} = ${fmt(R.m_dot, 4)}\\text{ kg/s} \\\\
+\\quad w_M = \\dfrac{${fmt(mVcoil, 4)}\\cdot ${fmt(V.w_g_kg, 2)} + ${fmt(R.m_dot, 4)}\\cdot ${fmt(R.w_g_kg, 2)}}{${fmt(I.m_dot, 4)}} = ${fmt(M.w_g_kg, 2)}\\text{ g/kg} \\\\
+\\quad h_M = \\dfrac{${fmt(mVcoil, 4)}\\cdot ${fmt(V.h, 2)} + ${fmt(R.m_dot, 4)}\\cdot ${fmt(R.h, 2)}}{${fmt(I.m_dot, 4)}} = ${fmt(M.h, 2)}\\text{ kJ/kg}\\\\
+\\qquad \\Rightarrow T_M = ${fmt(M.t, 2)}\\,^\\circ\\text{C} \\\\
+\\quad \\text{Recta } M-I \\text{ fins a } \\varphi = 100\\% \\Rightarrow T_S = ${S ? fmt(S.t, 2) : '\\text{--}'}\\,^\\circ\\text{C} \\\\
+\\qquad w_S = ${S ? fmt(S.w_g_kg, 2) : '\\text{--}'}\\text{ g/kg} \\\\[10pt]
+\\textbf{Resultat:} \\\\
+\\quad T_I = \\mathbf{${fmt(I.t, 2)}\\,^\\circ\\text{C}},\\; \\varphi_I = \\mathbf{${fmt(I.phi, 1)}\\%} \\\\
+\\quad \\dot{m}_I = \\mathbf{${fmt(I.m_dot, 4)}\\text{ kg/s}},\\; \\dot{m}_R = \\mathbf{${fmt(R.m_dot, 4)}\\text{ kg/s}} \\\\
+\\quad T_M = ${fmt(M.t, 2)}\\,^\\circ\\text{C},\\; T_S = \\mathbf{${fmt(T, 2)}\\,^\\circ\\text{C}} \\Rightarrow \\mathbf{\\text{${statusText}}}
+\\end{array}`;
+
+        return {
+          title: titleTxt,
+          summary: coil.message || 'Sense dades de bateria.',
+          latexFormula: formula,
+          latexSubstituted: substituted
+        };
+    };
 
     switch (stepIndex) {
       case 1: {
@@ -233,20 +378,26 @@ q_{\\text{sala}} &= q_i + \\dot{m}_{inf} (h_v - h_R),\\quad \\dot{m}_{v,\\text{b
         const infilSubst = hasInfil ? `\\\\[2pt]
 q_{\\text{sala}} &= ${fmt(pow.q_i, 2)} + ${fmt(pow.q_infil, 2)} = ${fmt(qRoom, 2)}\\text{ kW},\\quad \\dot{m}_{v,\\text{bat}} = \\mathbf{${fmt(mVcoil, 4)}\\text{ kg/s}}` : '';
         const mvSym = hasInfil ? '\\dot{m}_{v,\\text{bat}}' : '\\dot{m}_v';
+        const mIbal = pow.m_dot_I_balance !== undefined ? pow.m_dot_I_balance : I.m_dot;
+        const oa = !!sol.allOutdoorAir;
+        const oaFormula = oa ? `\\\\[6pt]
+\\dot{m}_{v,\\text{bat}} > \\dot{m}_{I,\\text{bal}} &\\implies \\dot{m}_I = \\dot{m}_{v,\\text{bat}},\\quad \\dot{m}_R = 0` : '';
+        const oaSubst = oa ? `\\\\[6pt]
+\\dot{m}_{I,\\text{bal}} &= ${fmt(mIbal, 4)}\\text{ kg/s} < \\dot{m}_{v,\\text{bat}} = ${fmt(mVcoil, 4)}\\text{ kg/s} \\implies \\dot{m}_I = \\mathbf{${fmt(I.m_dot, 4)}\\text{ kg/s}},\\; \\dot{m}_R = \\mathbf{0}` : '';
         return {
           title: 'Pas 4: Balanç de Cabals d\'Aire',
-          summary: `A partir de la diferència d'entalpia entre el retorn i la impulsió per absorbir la càrrega de la sala (${hasInfil ? 'q_sala' : 'q_i'}), es determinen els cabals necessaris.`,
+          summary: `A partir de la diferència d'entalpia entre el retorn i la impulsió per absorbir la càrrega de la sala (${hasInfil ? 'q_sala' : 'q_i'}), es determinen els cabals màssics de ventilació (ṁ_v = ${fmt(V.m_dot, 4)} kg/s), impulsió (ṁ_I = ${fmt(I.m_dot, 4)} kg/s) i retorn (ṁ_R = ${fmt(R.m_dot, 4)} kg/s).${oa ? ' Com que ṁ_v supera el cabal d\'impulsió necessari, es pren ṁ_I = ṁ_v i ṁ_R = 0 (100% aire exterior).' : ''}`,
           latexFormula: `\\begin{aligned}
 \\dot{m}_v &= \\frac{Q_v}{3600 \\cdot v_v}${infilFormula} \\\\[6pt]
 \\dot{m}_I &= \\frac{${qLabel}}{h_R - h_I} \\implies Q_I = \\dot{m}_I \\cdot v_I \\cdot 3600 \\\\[6pt]
-\\dot{m}_R &= \\dot{m}_I - ${mvSym} \\implies Q_R = \\dot{m}_R \\cdot v_R \\cdot 3600
+\\dot{m}_R &= \\dot{m}_I - ${mvSym} \\implies Q_R = \\dot{m}_R \\cdot v_R \\cdot 3600${oaFormula}
 \\end{aligned}`,
           latexSubstituted: `\\begin{aligned}
 \\dot{m}_v &= \\frac{${fmt(V.Q, 1)}}{3600 \\cdot ${fmt(V.v, 3)}} = \\mathbf{${fmt(V.m_dot, 4)}\\text{ kg/s}}${infilSubst} \\\\[6pt]
 \\dot{m}_I &= \\frac{${fmt(qRoom, 2)}}{${fmt(R.h, 2)} - ${fmt(I.h, 2)}} = \\frac{${fmt(qRoom, 2)}}{${fmt(R.h - I.h, 2)}} = \\mathbf{${fmt(I.m_dot, 4)}\\text{ kg/s}} \\\\[2pt]
 Q_I &= ${fmt(I.m_dot, 4)} \\cdot ${fmt(I.v, 3)} \\cdot 3600 = \\mathbf{${fmt(I.Q, 1)}\\text{ m}^3\\text{/h}} \\\\[6pt]
 \\dot{m}_R &= ${fmt(I.m_dot, 4)} - ${fmt(mVcoil, 4)} = \\mathbf{${fmt(R.m_dot, 4)}\\text{ kg/s}} \\\\[2pt]
-Q_R &= ${fmt(R.m_dot, 4)} \\cdot ${fmt(R.v, 3)} \\cdot 3600 = \\mathbf{${fmt(R.Q, 1)}\\text{ m}^3\\text{/h}}
+Q_R &= ${fmt(R.m_dot, 4)} \\cdot ${fmt(R.v, 3)} \\cdot 3600 = \\mathbf{${fmt(R.Q, 1)}\\text{ m}^3\\text{/h}}${oaSubst}
 \\end{aligned}`
         };
       }
@@ -281,20 +432,38 @@ FBP &= \\frac{h_I - h_S}{h_M - h_S} \\approx \\frac{T_I - T_S}{T_M - T_S}
             latexSubstituted: '\\text{No hi ha intersecció de la recta } M-I \\text{ amb } \\varphi = 100\\%'
           };
         }
+        const lim6 = (sol.coil && sol.coil.limits) || { min: 7 };
+        const low6 = sol.coil && Number.isFinite(sol.coil.T) && sol.coil.T < lim6.min - 0.05;
+        const jump6 = finalSol.naturalSolution ? 'es fixa T_S = ' + lim6.min + ' °C i es recalcula cap enrere (Pas 7)' : 'no s\'ha trobat cap recàlcul possible (Pas 8)';
+        const alert6 = low6 ? ` \\\\[12pt]
+\\begin{array}{l}
+\\textbf{T}_S = ${fmt(S.t, 2)}\\,^\\circ\\text{C} < ${fmt(lim6.min, 0)}\\,^\\circ\\text{C} \\Rightarrow \\textbf{NO viable} \\\\
+${finalSol.naturalSolution ? "\\text{S'atura el càlcul cap endavant:} \\\\ \\text{es fixa } T_S = " + lim6.min + "\\,^\\circ\\text{C i es recalcula cap enrere (Pas 7)}" : "\\text{S'atura el càlcul: no hi ha recàlcul possible (Pas 8)}"}
+\\end{array}` : '';
         return {
           title: 'Pas 6: Bateria de Fred, Superfície (S) i Bypass (FBP)',
-          summary: 'El procés a la bateria uneix la mescla (M) amb l\'estat d\'impulsió (I). La prolongació d\'aquesta recta fins a la corba de saturació (φ = 100%) defineix el punt de superfície de bateria (S) i el factor de bypass.',
+          summary: (low6 ? 'ATENCIÓ: T_S < ' + lim6.min + ' °C, la bateria no és viable; ' + jump6 + '. ' : '') + 'El procés a la bateria uneix la mescla (M) amb l\'estat d\'impulsió (I). La prolongació d\'aquesta recta fins a la corba de saturació (φ = 100%) defineix el punt de superfície de bateria (S) i el factor de bypass.',
           latexFormula: formula,
           latexSubstituted: `\\begin{aligned}
 \\text{Superfície de Bateria (S):} \\\\[2pt]
 T_S &= \\mathbf{${fmt(S.t, 2)}\\text{ °C}},\\quad \\varphi_S = 100\\%,\\quad w_S = \\mathbf{${fmt(S.w_g_kg, 2)}\\text{ g/kg}} \\\\[8pt]
 \\text{Factor de Bypass (FBP):} \\\\[2pt]
 FBP &= \\frac{${fmt(I.t, 2)} - ${fmt(S.t, 2)}}{${fmt(M.t, 2)} - ${fmt(S.t, 2)}} = \\frac{${fmt(I.t - S.t, 2)}}{${fmt(M.t - S.t, 2)}} = \\mathbf{${fmt(pow.FBP, 4)}}
-\\end{aligned}`
+\\end{aligned}${alert6}`
         };
       }
 
       case 7:
+        if (finalSol.naturalSolution) {
+          const c7 = coilStep('Pas 7: T_bat < 7 °C → recàlcul cap enrere amb T_S = 7 °C', {});
+          c7.latexSubstituted = c7.latexSubstituted.replace(/\\end\{array\}$/, `\\\\[10pt]
+\\textbf{Condensats i potència amb els valors nous:} \\\\
+\\quad \\dot{M}_{cond} = ${fmt(pow.M_cond_h, 2)}\\text{ kg H}_2\\text{O/h} \\\\
+\\quad q_{\\text{bateria}} = ${fmt(pow.q_bateria, 2)}\\text{ kW},\\; q_{\\text{total}} = ${fmt(pow.q_total, 2)}\\text{ kW}
+\\end{array}`);
+          c7.summary = 'Diagrama: en gris, el procés inicial no viable (M₀, I₀, S₀); en color, el procés desplaçat (M, I, S) amb la recta de bateria M–I recalculada perquè talli la saturació a T_S = 7 °C. ' + c7.summary;
+          return c7;
+        }
         return {
           title: 'Pas 7: Condensats i Potència Frigorífica de la Bateria',
           summary: 'Es determina la quantitat d\'aigua condensada per deshumidificació i la potència total necessària a la bateria de fred.',
@@ -313,6 +482,14 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
 \\end{aligned}`
         };
 
+
+      case 8: {
+        if (finalSol.naturalSolution) {
+          return coilStep('Pas 8: Temperatura de la Bateria i Viabilitat', { noProc: true });
+        }
+        return coilStep('Pas 8: Temperatura de la Bateria i Viabilitat');
+      }
+
       default:
         return { title: '', summary: '', latexFormula: '', latexSubstituted: '' };
     }
@@ -320,10 +497,11 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
 
   function renderLatex(container, latex) {
     if (!container) return;
-    if (!latex) {
+    if (latex === undefined || latex === null || latex === '' || latex === 'undefined') {
       container.textContent = '';
       return;
     }
+    latex = String(latex);
     if (typeof katex === 'undefined') {
       // KaTeX no disponible (p. ex. sense connexió al CDN): mostrar el codi font
       container.textContent = latex;
@@ -340,7 +518,21 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
   function renderCurrentStep() {
     if (typeof document === 'undefined') return;
 
-    const data = getStepContent(currentStep, activeSolution);
+    let data;
+    try {
+      data = getStepContent(currentStep, activeSolution);
+    } catch (err) {
+      // Si un pas falla, es mostra l'error en lloc de deixar valors buits o "undefined"
+      console.error(`Error generant el pas ${currentStep}:`, err);
+      data = {
+        title: `Pas ${currentStep}: error en generar el contingut`,
+        summary: `No s'ha pogut generar aquest pas (${err.message}).`,
+        latexFormula: '',
+        latexSubstituted: ''
+      };
+    }
+    data.title = data.title || '';
+    data.summary = data.summary || '';
 
     // Actualitzar textos informatius
     const elIndicator = document.getElementById('debug-step-indicator');
@@ -368,7 +560,7 @@ FCS_{\\text{total}} &= \\mathbf{${fmt(pow.FCS_total, 4)}}
     if (btnLast) btnLast.disabled = noData || (currentStep === TOTAL_STEPS);
 
     // Sincronitzar diagrama psicromètric amb el pas actual
-    PsychroChart.render(activeSolution, currentStep, 'debug-psychro-container');
+    PsychroChart.render((currentStep < 7 && activeSolution && activeSolution.naturalSolution) ? activeSolution.naturalSolution : activeSolution, currentStep, 'debug-psychro-container');
   }
 
   /**

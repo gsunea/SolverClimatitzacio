@@ -114,10 +114,16 @@ describe('Thermodynamic State Points (solvePointFromProperties)', () => {
     }, /incompatible/i);
   });
 
-  test('Error handling: Unsupported pair (th, v) throws error', () => {
+  test('Pair (th, v) is solved and reproduces the state', () => {
+    const ref = solver.solvePointFromProperties({ t: 28.0, phi: 60.0 }, P_STD, pl);
+    const r = solver.solvePointFromProperties({ th: ref.th, v: ref.v }, P_STD, pl);
+    assert.ok(Math.abs(r.t - 28.0) < 0.02 && Math.abs(r.phi - 60.0) < 0.2);
+  });
+
+  test('Pair (th, v) incompatible data throws error', () => {
     assert.throws(() => {
-      solver.solvePointFromProperties({ th: 18.0, v: 0.86 }, P_STD, pl);
-    }, /no suportada/i);
+      solver.solvePointFromProperties({ th: 18.0, v: 1.5 }, P_STD, pl);
+    });
   });
 
   test('Boundary: Providing fewer than 2 properties returns null', () => {
@@ -143,5 +149,49 @@ describe('Thermodynamic State Points (solvePointFromProperties)', () => {
     const resG = solver.solvePointFromProperties({ t: 25.0, w_g_kg: 9.89 }, P_STD, pl);
     assert.ok(resG, 'Point should be solved from w_g_kg');
     assert.ok(Math.abs(resG.w - 0.00989) < 0.0001);
+  });
+
+  describe('Regression: initial-value sweep (every property pair)', () => {
+    const keys = ['t', 'phi', 'w', 'h', 'tr', 'th', 'v'];
+    const failures = [];
+    for (let t = -10; t <= 50; t += 2.5) {
+      for (let phi = 5; phi <= 100; phi += 5) {
+        const ref = solver.solvePointFromProperties({ t, phi }, P_STD, pl);
+        for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) {
+          const a = keys[i], b = keys[j];
+          if (a === 'w' && b === 'tr') continue;
+          // h–th es mal condicionat (sobretot amb th ≈ 0 °C): s'exclou del barrit exacte
+          if (a === 'h' && b === 'th') continue;
+          try {
+            const r = solver.solvePointFromProperties({ [a]: ref[a], [b]: ref[b] }, P_STD, pl);
+            if (Math.abs(r.t - ref.t) > 0.02 || Math.abs(r.w - ref.w) > 2e-6) failures.push(`${a}-${b} @ ${t}C/${phi}%`);
+          } catch (e) { failures.push(`${a}-${b} @ ${t}C/${phi}%: ${e.message}`); }
+        }
+      }
+    }
+    test('all pairs except h–th recover the state over the whole chart', () => {
+      assert.deepStrictEqual(failures, []);
+    });
+
+    test('h–th recovers the state unless th is ~0 °C (ill-posed)', () => {
+      let bad = 0;
+      for (let t = -10; t <= 50; t += 2.5) for (let phi = 5; phi <= 100; phi += 5) {
+        const ref = solver.solvePointFromProperties({ t, phi }, P_STD, pl);
+        if (ref.th > 0.0 && ref.th < 1.0) continue;
+        try {
+          const r = solver.solvePointFromProperties({ h: ref.h, th: ref.th }, P_STD, pl);
+          if (Math.abs(r.t - ref.t) > 0.5) bad++;
+        } catch (e) { bad++; }
+      }
+      assert.strictEqual(bad, 0);
+    });
+  });
+
+  test('Saturated state with wet bulb: w–th, tr–th and phi–th give T = th', () => {
+    const ref = solver.solvePointFromProperties({ t: 27.5, phi: 100.0 }, P_STD, pl);
+    for (const props of [{ w: ref.w, th: ref.th }, { tr: ref.tr, th: ref.th }, { phi: 100.0, th: ref.th }]) {
+      const r = solver.solvePointFromProperties(props, P_STD, pl);
+      assert.ok(Math.abs(r.t - 27.5) < 0.02);
+    }
   });
 });
