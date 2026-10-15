@@ -3,41 +3,46 @@
 Aplicació web lleugera, neta i interactiva per a la resolució i representació psicromètrica de sistemes de climatització en estiu, feta amb JavaScript, HTML5 i CSS3. Desplegable a **GitHub Pages**.
 
 ---
+### Taula d'estats
 
-## Característiques
+- Per als punts de **Ventilació (V)** i **Retorn (R)** només cal entrar dues propietats qualssevol que siguin independents (per exemple T seca i HR, T seca i T humida, T seca i humitat absoluta...). Les altres cinc es calculen soles en el moment.
+- Els valors que entra l'usuari es veuen amb fons blanc i els calculats en blau, així es distingeix fàcilment què és dada i què és resultat. Cada fila té un petit indicador de quantes dades hi ha posades i un botó `×` per esborrar-la.
+- Per a la **Impulsió (I)** es pot fixar la humitat relativa (per defecte 90%), la temperatura d'impulsió o el cabal total, segons el que doni l'enunciat.
 
-* **Taula interactiva tipus full de càlcul**:
-  * **Entrada lliure de 2 propietats per punt**: Introdueix qualsevol parella de propietats independents a **Ventilació ($V$)** o **Retorn ($R$)** (per exemple $H_{\text{abs}}$ i $\text{HR}$, $T_{\text{seca}}$ i $T_{\text{humida}}$, $T_{\text{seca}}$ i $H_{\text{abs}}$, etc.).
-  * **Càlcul i autocompletat en temps real**: En introduir dues dades en una fila, les 5 propietats restants es calculen i omplen a l'instant.
-  * **Distinció visual clara**: Les dades font introduïdes per l'usuari es mostren en fons blanc ressaltat, mentre que les dades deduïdes es mostren en blau càlcul amb indicadors d'estat (`[2/2]`, `✓ [w, φ]`) i botó de neteja ràpida (`×`).
-  * **Condicions flexibles d'Impulsió ($I$)**: Possibilitat de fixar la humitat relativa ($\varphi_I$, per defecte 90%), la temperatura d'impulsió ($T_I$) o el cabal total ($Q_I$).
-* **Taula de potències tèrmiques i cabals**:
-  * Balanços de calor sensible i latent ($q_{si}, q_{li}, q_{sv}, q_{lv}, q_{\text{total}}$), amb suport per introduir directament $q_{si}$ i $FCS_i$.
-  * Factors de calor sensible ($FCS_i$ i $FCS_t$).
-  * Factor de bypass de la bateria ($FBP$) i cabal d'aigua condensada ($\text{kg/h}$).
-* **Diagrama Psicromètric autèntic (Carta Carrier / ASHRAE)**:
-  * Gràfic vectorial SVG d'alta fidelitat amb corbes de saturació, línies d'humitat relativa ($\varphi = 10\% \dots 90\%$), línies d'entalpia/temperatura humida i línies de volum específic.
-  * Traçat automàtic dels processos: línia de mescla $V - R$, refredament a bateria $M - I$, prolongació a superfície $I - S$ i maniobra de sala $I - R$.
-  * **Visualització en Pantalla Completa**: Botó dedicat per estudiar el diagrama psicromètric amb el màxim detall.
-* **Resolució Pas a Pas (Debugger)**:
-  * Pestanya interactiva que permet avançar o retrocedir pas a pas (de l'1 al 7) en la resolució de l'exercici.
-  * **Columna Esquerra**: Equacions teòriques en LaTeX (KaTeX) i substitució amb els valors numèrics reals del càlcul en curs.
-  * **Columna Dreta**: Diagrama psicromètric sincronitzat que dibuixa únicament els elements calculats fins al pas seleccionat.
-* **Botó de cas de referència**:
-  * Permet carregar l'exercici clàssic d'exemple per comprovar i verificar els resultats amb 1 sol clic.
+### Potències i cabals
 
----
+- Calcula les càrregues sensibles i latents ($q_{si}$, $q_{li}$, $q_{sv}$, $q_{lv}$) i la total. També es pot entrar directament $q_{si}$ i el $FCS_i$.
+- Factors de calor sensible ($FCS_i$ i $FCS_t$).
+- Factor de bypass de la bateria i cabal d'aigua condensada (kg/h).
 
-## Execució en Local
+### Diagrama psicromètric
 
-Obre directament `index.html` amb qualsevol navegador modern, o serveix el directori amb un servidor estàtic:
+- El diagrama està fet en SVG seguint l'estil de la carta Carrier / ASHRAE: corba de saturació, línies d'HR del 10% al 90%, entalpia / temperatura humida i volum específic.
+- Es dibuixen automàticament els processos: mescla V–R, refredament a la bateria M–I, la prolongació fins a la temperatura de superfície I–S i la recta de la sala I–R.
+- Hi ha un botó per veure'l a pantalla completa, que va bé per mirar-lo amb més detall.
+
+### Resolució pas a pas
+
+- Hi ha una pestanya on es pot anar endavant i enrere pels 7 passos de la resolució.
+- A l'esquerra surten les equacions (amb KaTeX) i la substitució amb els números del cas que s'està calculant.
+- A la dreta hi ha el diagrama, que només mostra el que s'ha calculat fins a aquell pas.
+
+### Cas de referència
+
+Hi ha un botó que carrega l'exercici d'exemple de classe, per poder comprovar que els resultats surten bé.
+
+## Com executar-ho en local
+
+N'hi ha prou amb obrir `index.html` amb el navegador. Si dona problemes, es pot aixecar un servidor local des de la carpeta:
 
 ```bash
 python -m http.server 8000
 ```
 
----
+i obrir `http://localhost:8000`.
 
-## Pàgina desplegada
-Com que s'ha estructurat el projecte només amb js, html i css, s'ha pogut desplegar el projecte a github pages. Aixi doncs, es pot utilitzar l'eina accedint a la pàgina, sense tindre els arxius descarregats localment.
-url: gsunea.github.io/SolverClimatitzacio
+## Versió online
+
+Com que només és HTML, CSS i JS, està penjat a GitHub Pages i es pot fer servir sense descarregar res:
+
+https://gsunea.github.io/SolverClimatitzacio
